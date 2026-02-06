@@ -1,0 +1,27 @@
+{
+    "name": "finpro",
+    "version": "1.0.0",
+    "description": "Finpro - Financial Management System by Next Gen Innovations Nepal",
+    "scripts": {
+        "predev": "powershell -ExecutionPolicy Bypass -File ./clean-ports.ps1",
+        "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" --names \"BACKEND,FRONTEND\" --prefix-colors \"bgBlue.bold,bgMagenta.bold\"",
+        "dev:backend": "cd backend && mvn spring-boot:run",
+        "dev:frontend": "cd frontend && npm run dev",
+        "start": "powershell -ExecutionPolicy Bypass -File ./start.ps1",
+        "stop": "powershell -ExecutionPolicy Bypass -File ./stop.ps1",
+        "start:backend": "cd backend && mvn spring-boot:run",
+        "start:frontend": "cd frontend && npm run dev",
+        "install:all": "cd backend && mvn clean install && cd ../frontend && npm install",
+        "clean:ports": "powershell -Command \"Get-NetTCPConnection -LocalPort 8080,5173 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }\""
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    },
+    "keywords": [
+        "fintech",
+        "saas",
+        "financial-management"
+    ],
+    "author": "Next Gen Innovations Nepal",
+    "license": "MIT"
+}

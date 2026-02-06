@@ -1,0 +1,41 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*.tmp
+
+# Java / Maven
+backend/target/
+backend/*.log
+backend/.metadata/
+backend/.recommenders/
+backend/bin/
+backend/.settings/
+backend/.project
+backend/.classpath
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/*.log
+node_modules/
+
+# Gemini / Antigravity
+.gemini/
+brain/
+logs/
+*.md-artifact
+task.md
+implementation_plan.md
+walkthrough.md
+
+# Application logs
+logs/
+*.log
