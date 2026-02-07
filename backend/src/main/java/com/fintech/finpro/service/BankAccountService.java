@@ -211,6 +211,7 @@ public class BankAccountService {
                                 .branchName(account.getBranchName())
                                 .isPrimary(account.getIsPrimary())
                                 .balance(account.getBalance())
+                                .heldBalance(account.getHeldBalance())
                                 .status(account.getStatus())
                                 .createdAt(account.getCreatedAt())
                                 .updatedAt(account.getUpdatedAt())
@@ -340,7 +341,13 @@ public class BankAccountService {
                                 .isBulk(transaction.getIsBulk())
                                 .rejectionReason(transaction.getRejectionReason())
                                 .verifiedAt(transaction.getVerifiedAt())
-                                .createdAt(transaction.getCreatedAt())
                                 .build();
+        }
+
+        @Transactional(readOnly = true)
+        public List<BankAccountDTO> getAllBankAccounts() {
+                return bankAccountRepository.findAll().stream()
+                                .map(this::mapToDTO)
+                                .collect(Collectors.toList());
         }
 }

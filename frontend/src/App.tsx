@@ -24,6 +24,7 @@ import BulkDepositVerificationPage from './features/customers/BulkDepositVerific
 import BankList from './features/banks/BankList';
 import BankAccountDetails from './features/banking/BankAccountDetails';
 import BankOperations from './features/banking/BankOperations';
+import CapitalDepositForm from './features/admin/CapitalDepositForm';
 import './index.css';
 
 function App() {
@@ -211,6 +212,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN']}>
                   <BankAccountDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="capital-deposits/create"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
+                  <CapitalDepositForm />
                 </ProtectedRoute>
               }
             />

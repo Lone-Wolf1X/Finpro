@@ -141,4 +141,10 @@ public class BankAccountController {
         bankAccountService.deleteBankAccount(id);
         return ResponseEntity.ok(Map.of("message", "Bank account deleted successfully"));
     }
+
+    @GetMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<List<BankAccountDTO>> getAllBankAccounts() {
+        return ResponseEntity.ok(bankAccountService.getAllBankAccounts());
+    }
 }

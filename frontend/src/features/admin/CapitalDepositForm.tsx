@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../../api/apiClient';
 import { CreditCard, DollarSign, Send } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -27,10 +27,7 @@ export default function CapitalDepositForm() {
 
     const loadSystemAccounts = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get('http://localhost:8080/api/system-accounts', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await apiClient.get('/system-accounts');
             setSystemAccounts(response.data);
         } catch (error) {
             console.error('Failed to load system accounts:', error);
@@ -47,13 +44,10 @@ export default function CapitalDepositForm() {
 
         try {
             setLoading(true);
-            const token = localStorage.getItem('token');
-            await axios.post('http://localhost:8080/api/capital-deposits', {
+            await apiClient.post('/capital-deposits', {
                 targetAccountId: formData.targetAccountId,
                 amount: parseFloat(formData.amount),
                 description: formData.description
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
             });
 
             toast.success('Capital deposit initiated successfully (Pending Verification)');

@@ -160,6 +160,15 @@ export const ledgerApi = {
         apiClient.post('/ledger/system-accounts', { name, type }),
 };
 
+// System Account API
+export const systemAccountApi = {
+    getAll: () =>
+        apiClient.get<any[]>('/system-accounts'),
+
+    getById: (id: number) =>
+        apiClient.get<any>(`/system-accounts/${id}`),
+};
+
 // Bulk Deposit API
 export const bulkDepositApi = {
     getAll: () =>

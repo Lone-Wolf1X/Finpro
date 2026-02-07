@@ -26,6 +26,7 @@ public class BankAccountDTO {
     private Boolean isPrimary;
     private String status;
     private BigDecimal balance;
+    private BigDecimal heldBalance;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
