@@ -33,9 +33,11 @@ public class Bank {
     private String localBody;
 
     @Column(name = "is_casba")
+    @Builder.Default
     private Boolean isCasba = false;
 
     @Column(name = "casba_charge")
+    @Builder.Default
     private BigDecimal casbaCharge = BigDecimal.ZERO;
 
     @Column(name = "active")

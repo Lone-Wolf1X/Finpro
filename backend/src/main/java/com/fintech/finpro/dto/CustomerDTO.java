@@ -34,10 +34,16 @@ public class CustomerDTO {
     private BankDTO bank;
     private String address;
     private String kycStatus;
+    private String remarks;
 
     // Guardian info
     private Long guardianId;
     private String guardianName;
+
+    private String photoPath;
+    private String signaturePath;
+    private String guardianPhotoPath;
+    private String guardianSignaturePath;
 
     // Audit fields
     private Long createdByUserId;

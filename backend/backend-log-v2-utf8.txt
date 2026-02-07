@@ -1,0 +1,71 @@
+﻿[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------------< com.fintech:finpro-backend >---------------------
+[INFO] Building Finpro Backend 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.2.2:run (default-cli) > test-compile @ finpro-backend >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ finpro-backend ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 20 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ finpro-backend ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ finpro-backend ---
+[INFO] skip non existing resourceDirectory G:\Earnmore\Finpro\backend\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ finpro-backend ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 1 source file with javac [debug release 21] to target\test-classes
+[INFO] Annotation processing is enabled because one or more processors were found
+  on the class path. A future release of javac may disable annotation processing
+  unless at least one processor is specified by name (-processor), or a search
+  path is specified (--processor-path, --processor-module-path), or annotation
+  processing is enabled explicitly (-proc:only, -proc:full).
+  Use -Xlint:-options to suppress this message.
+  Use -proc:none to disable annotation processing.
+[INFO] 
+[INFO] <<< spring-boot:3.2.2:run (default-cli) < test-compile @ finpro-backend <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.2.2:run (default-cli) @ finpro-backend ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::                (v3.2.2)
+
+2026-02-07T10:25:20.095+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] c.f.finpro.FinproBackendApplication      : Starting FinproBackendApplication using Java 21.0.10 with PID 21688 (G:\Earnmore\Finpro\backend\target\classes started by abhip in G:\Earnmore\Finpro\backend)
+2026-02-07T10:25:20.097+05:45 DEBUG 21688 --- [Finpro Backend] [  restartedMain] c.f.finpro.FinproBackendApplication      : Running with Spring Boot v3.2.2, Spring v6.1.3
+2026-02-07T10:25:20.098+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] c.f.finpro.FinproBackendApplication      : No active profile set, falling back to 1 default profile: "default"
+2026-02-07T10:25:20.178+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-02-07T10:25:20.178+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] .e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-02-07T10:25:22.507+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-02-07T10:25:22.691+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 169 ms. Found 13 JPA repository interfaces.
+2026-02-07T10:25:24.165+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-02-07T10:25:24.191+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-02-07T10:25:24.192+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.18]
+2026-02-07T10:25:24.310+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-02-07T10:25:24.314+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 4131 ms
+2026-02-07T10:25:24.494+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-02-07T10:25:24.875+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@2868a56f
+2026-02-07T10:25:24.878+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-02-07T10:25:24.987+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.f.c.internal.license.VersionPrinter    : Flyway Community Edition 9.22.3 by Redgate
+2026-02-07T10:25:24.987+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.f.c.internal.license.VersionPrinter    : See release notes here: https://rd.gt/416ObMi
+2026-02-07T10:25:24.987+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.f.c.internal.license.VersionPrinter    : 
+2026-02-07T10:25:25.012+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5433/fintech_saas (PostgreSQL 18.1)
+2026-02-07T10:25:25.021+05:45  WARN 21688 --- [Finpro Backend] [  restartedMain] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 18.1 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 15.
+2026-02-07T10:25:25.154+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 21
+2026-02-07T10:25:25.157+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-02-07T10:25:25.348+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-02-07T10:25:25.486+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.4.1.Final
+2026-02-07T10:25:25.560+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-02-07T10:25:26.031+05:45  INFO 21688 --- [Finpro Backend] [  restartedMain] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-02-07T10:25:26.156+05:45  WARN 21688 --- [Finpro Backend] [  restartedMain] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)

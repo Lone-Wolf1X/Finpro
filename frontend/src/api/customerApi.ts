@@ -30,8 +30,11 @@ export const customerApi = {
     approve: (id: number, approvedBy: number) =>
         apiClient.put<Customer>(`/customers/${id}/approve`, null, { params: { approvedBy } }),
 
-    reject: (id: number) =>
-        apiClient.put<Customer>(`/customers/${id}/reject`),
+    reject: (id: number, remarks: string) =>
+        apiClient.put<Customer>(`/customers/${id}/reject`, { remarks }),
+
+    return: (id: number, remarks: string) =>
+        apiClient.put<Customer>(`/customers/${id}/return`, { remarks }),
 
     getEligibleGuardians: () =>
         apiClient.get<Customer[]>('/customers/guardians'),
@@ -134,4 +137,21 @@ export const ipoApplicationApi = {
 
     allotShares: (id: number, quantity: number) =>
         apiClient.put<IPOApplication>(`/ipo-applications/${id}/allot`, null, { params: { quantity } }),
+};
+// Bulk Deposit API
+export const bulkDepositApi = {
+    getAll: () =>
+        apiClient.get<any[]>('/bulk-deposits'),
+
+    getById: (batchId: string) =>
+        apiClient.get<any>(`/bulk-deposits/${batchId}`),
+
+    create: (data: any, makerId: number) =>
+        apiClient.post<any>('/bulk-deposits', data, { params: { makerId } }),
+
+    verify: (batchId: string, checkerId: number) =>
+        apiClient.put<any>(`/bulk-deposits/${batchId}/verify`, null, { params: { checkerId } }),
+
+    reject: (batchId: string, remarks: string, checkerId: number) =>
+        apiClient.put<any>(`/bulk-deposits/${batchId}/reject`, { remarks }, { params: { checkerId } }),
 };

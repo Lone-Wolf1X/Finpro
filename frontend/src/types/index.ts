@@ -64,7 +64,7 @@ export interface UpdateUserRequest {
 
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export type CustomerType = 'MAJOR' | 'MINOR';
-export type KycStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT';
+export type KycStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT' | 'RETURNED';
 export type AccountType = 'SAVINGS' | 'CURRENT' | 'FIXED_DEPOSIT';
 export type IPOStatus = 'UPCOMING' | 'OPEN' | 'CLOSED' | 'ALLOTTED' | 'LISTED';
 export type ApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALLOTTED';
@@ -87,6 +87,7 @@ export interface Customer {
     bankName?: string;
     address?: string;
     kycStatus: KycStatus;
+    remarks?: string;
     customerCode?: string;
     citizenshipNumber?: string;
     nidNumber?: string;
@@ -95,6 +96,10 @@ export interface Customer {
     guardianRelation?: string;
     createdByUserId?: number;
     approvedByUserId?: number;
+    photoPath?: string;
+    signaturePath?: string;
+    guardianPhotoPath?: string;
+    guardianSignaturePath?: string;
     createdAt: string;
     updatedAt: string;
 }
@@ -115,6 +120,29 @@ export interface CreateCustomerRequest {
     guardianId?: number;
     guardianName?: string;
     guardianRelation?: string;
+    remarks?: string;
+    photoPath?: string;
+    signaturePath?: string;
+    guardianPhotoPath?: string;
+    guardianSignaturePath?: string;
+    secondaryBankAccounts?: {
+        bankId: number;
+        accountNumber: string;
+        accountType: AccountType;
+        branchName?: string;
+    }[];
+}
+
+export interface LedgerAccount {
+    id: number;
+    accountName: string;
+    accountType: string;
+    ownerId?: number;
+    balance: number;
+    currency: string;
+    status: string;
+    createdAt: string;
+    updatedAt: string;
 }
 
 export interface BankAccount {
@@ -226,4 +254,36 @@ export interface PaginatedResponse<T> {
     page: number;
     pageSize: number;
     totalPages: number;
+}
+// Bulk Deposit Types
+export interface BulkDepositItem {
+    id: number;
+    customerId: number;
+    customerName: string;
+    customerCode: string;
+    amount: number;
+    remarks: string;
+    status: string;
+}
+
+export interface BulkDeposit {
+    id: number;
+    batchId: string;
+    makerId: number;
+    checkerId?: number;
+    totalAmount: number;
+    itemCount: number;
+    status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RETURNED';
+    remarks?: string;
+    createdAt: string;
+    items?: BulkDepositItem[];
+}
+
+export interface CreateBulkDepositRequest {
+    remarks: string;
+    items: {
+        customerId: number;
+        amount: number;
+        remarks: string;
+    }[];
 }

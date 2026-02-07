@@ -15,4 +15,17 @@ public class SecurityUtils {
         }
         return null;
     }
+
+    public static boolean hasRole(String role) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null) {
+            return authentication.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_" + role));
+        }
+        return false;
+    }
+
+    public static boolean isMaker() {
+        return hasRole("MAKER");
+    }
 }

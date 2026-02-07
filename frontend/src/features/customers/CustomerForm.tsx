@@ -5,6 +5,7 @@ import { getBanks } from '../../api/bankService';
 import { CreateCustomerRequest, Gender, Customer } from '../../types';
 import { Bank } from '../../types/bank.types';
 import BulkUploadModal from './BulkUploadModal.tsx';
+import { Camera, CreditCard, Plus, Trash2 } from 'lucide-react';
 
 export default function CustomerForm() {
     const navigate = useNavigate();
@@ -26,7 +27,13 @@ export default function CustomerForm() {
         nidNumber: '',
         guardianId: undefined,
         guardianName: '',
-        guardianRelation: ''
+        guardianRelation: '',
+        remarks: '',
+        photoPath: '',
+        signaturePath: '',
+        guardianPhotoPath: '',
+        guardianSignaturePath: '',
+        secondaryBankAccounts: []
     });
 
 
@@ -36,6 +43,7 @@ export default function CustomerForm() {
     const [isMinor, setIsMinor] = useState(false);
     const [loading, setLoading] = useState(false);
     const [showBulkUpload, setShowBulkUpload] = useState(false);
+    const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
 
     useEffect(() => {
 
@@ -76,6 +84,7 @@ export default function CustomerForm() {
         try {
             const response = await customerApi.getById(Number(id));
             const customer = response.data;
+            setCurrentCustomer(customer);
             setFormData({
                 firstName: customer.firstName,
                 lastName: customer.lastName,
@@ -91,7 +100,13 @@ export default function CustomerForm() {
                 nidNumber: customer.nidNumber || '',
                 guardianId: customer.guardianId,
                 guardianName: customer.guardianName || '',
-                guardianRelation: customer.guardianRelation || ''
+                guardianRelation: customer.guardianRelation || '',
+                remarks: customer.remarks || '',
+                photoPath: customer.photoPath || '',
+                signaturePath: customer.signaturePath || '',
+                guardianPhotoPath: customer.guardianPhotoPath || '',
+                guardianSignaturePath: customer.guardianSignaturePath || '',
+                secondaryBankAccounts: [] // Default if not using separate API for secondary
             });
         } catch (error) {
             console.error('Failed to load customer:', error);
@@ -190,6 +205,29 @@ export default function CustomerForm() {
                         </button>
                     )}
                 </div>
+
+                {formData.remarks && (
+                    <div className="mb-6 bg-orange-50 border border-orange-200 p-4 rounded-lg">
+                        <h3 className="text-sm font-bold text-orange-800 mb-1">KYC Return/Reject Remarks:</h3>
+                        <p className="text-sm text-orange-700">{formData.remarks}</p>
+                    </div>
+                )}
+
+                {isEdit && (
+                    <div className="mb-6 bg-blue-50 border border-blue-200 p-4 rounded-lg flex items-center justify-between">
+                        <div>
+                            <span className="text-sm font-medium text-gray-500">Customer ID: </span>
+                            <span className="text-lg font-mono font-bold text-blue-700">
+                                {currentCustomer?.customerCode || 'Loading...'}
+                            </span>
+                        </div>
+                        <div className="text-right">
+                            <span className={`px-3 py-1 text-xs font-bold rounded-full ${isMinor ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                                {isMinor ? 'MINOR' : 'MAJOR'}
+                            </span>
+                        </div>
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
                     {/* Personal Information */}
@@ -336,6 +374,71 @@ export default function CustomerForm() {
                         </div>
                     </div>
 
+                    {/* Photos & Signatures */}
+                    <div className="mb-6 p-6 bg-gray-50 rounded-2xl border border-gray-100">
+                        <h2 className="text-lg font-black text-gray-800 mb-6 uppercase tracking-tight flex items-center gap-2">
+                            <Camera size={20} className="text-blue-600" />
+                            Photos & Signatures
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* Customer Photo/Sign */}
+                            <div className="space-y-4">
+                                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Customer Documents</h3>
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Profile Photo Path</label>
+                                        <input
+                                            type="text"
+                                            value={formData.photoPath}
+                                            onChange={(e) => setFormData({ ...formData, photoPath: e.target.value })}
+                                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-700 placeholder:text-gray-300"
+                                            placeholder="e.g. photo_123.jpg"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Signature Path</label>
+                                        <input
+                                            type="text"
+                                            value={formData.signaturePath}
+                                            onChange={(e) => setFormData({ ...formData, signaturePath: e.target.value })}
+                                            className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-700 placeholder:text-gray-300"
+                                            placeholder="e.g. sign_123.png"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Guardian Photo/Sign (Visible if Minor) */}
+                            {isMinor && (
+                                <div className="space-y-4">
+                                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest px-1">Guardian Documents</h3>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <div>
+                                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Guardian Photo Path</label>
+                                            <input
+                                                type="text"
+                                                value={formData.guardianPhotoPath}
+                                                onChange={(e) => setFormData({ ...formData, guardianPhotoPath: e.target.value })}
+                                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-700 placeholder:text-gray-300"
+                                                placeholder="e.g. guardian_photo.jpg"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Guardian Signature Path</label>
+                                            <input
+                                                type="text"
+                                                value={formData.guardianSignaturePath}
+                                                onChange={(e) => setFormData({ ...formData, guardianSignaturePath: e.target.value })}
+                                                className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-700 placeholder:text-gray-300"
+                                                placeholder="e.g. guardian_sign.png"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Guardian Selection (for MINOR) */}
                     {isMinor && (
                         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -397,18 +500,22 @@ export default function CustomerForm() {
                     )}
 
                     {/* Bank Information */}
-                    <div className="mb-6">
-                        <h2 className="text-lg font-semibold mb-4">Bank Information (Mandatory)</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="mb-6 p-6 bg-blue-50/30 rounded-2xl border border-blue-100">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-lg font-black text-gray-800 uppercase tracking-tight flex items-center gap-2">
+                                <CreditCard size={20} className="text-blue-600" />
+                                Bank Information
+                            </h2>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                                <label className="block text-sm font-medium mb-2">
-                                    Select Bank <span className="text-red-500">*</span>
-                                </label>
+                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Primary Bank <span className="text-red-500">*</span></label>
                                 <select
                                     required
                                     value={formData.bankId}
                                     onChange={(e) => setFormData({ ...formData, bankId: Number(e.target.value) })}
-                                    className="w-full px-3 py-2 border rounded-lg"
+                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-700"
                                 >
                                     <option value={0}>-- Select Bank --</option>
                                     {banks.map((bank) => (
@@ -419,18 +526,93 @@ export default function CustomerForm() {
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium mb-2">
-                                    Bank Account Number <span className="text-red-500">*</span>
-                                </label>
+                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Primary Account Number <span className="text-red-500">*</span></label>
                                 <input
                                     type="text"
                                     required
                                     value={formData.bankAccountNumber}
                                     onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
-                                    className="w-full px-3 py-2 border rounded-lg"
+                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-700 placeholder:text-gray-300"
+                                    placeholder="Enter primary account number"
                                 />
                             </div>
                         </div>
+
+                        {/* Secondary Bank Accounts (Visible in Draft/Edit if allowed) */}
+                        {(!isEdit || currentCustomer?.kycStatus === 'DRAFT') && (
+                            <div className="mt-8 pt-8 border-t border-blue-100">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest">Secondary Bank Accounts</h3>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const updated = [...(formData.secondaryBankAccounts || [])];
+                                            updated.push({ bankId: 0, accountNumber: '', accountType: 'SAVINGS' as any });
+                                            setFormData({ ...formData, secondaryBankAccounts: updated });
+                                        }}
+                                        className="text-[10px] font-black bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-all uppercase tracking-widest flex items-center gap-1 shadow-sm"
+                                    >
+                                        <Plus size={12} /> Add Bank
+                                    </button>
+                                </div>
+
+                                {formData.secondaryBankAccounts && formData.secondaryBankAccounts.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {formData.secondaryBankAccounts.map((acc, index) => (
+                                            <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-white rounded-xl border border-blue-50 shadow-sm relative group">
+                                                <div className="md:col-span-2">
+                                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Bank Name</label>
+                                                    <select
+                                                        value={acc.bankId}
+                                                        onChange={(e) => {
+                                                            const updated = [...formData.secondaryBankAccounts!];
+                                                            updated[index].bankId = Number(e.target.value);
+                                                            setFormData({ ...formData, secondaryBankAccounts: updated });
+                                                        }}
+                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-700 text-sm"
+                                                    >
+                                                        <option value={0}>-- Select Bank --</option>
+                                                        {banks.map((bank) => (
+                                                            <option key={bank.id} value={bank.id}>{bank.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Account Number</label>
+                                                    <input
+                                                        type="text"
+                                                        value={acc.accountNumber}
+                                                        onChange={(e) => {
+                                                            const updated = [...formData.secondaryBankAccounts!];
+                                                            updated[index].accountNumber = e.target.value;
+                                                            setFormData({ ...formData, secondaryBankAccounts: updated });
+                                                        }}
+                                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-700 text-sm"
+                                                        placeholder="Account #"
+                                                    />
+                                                </div>
+                                                <div className="flex items-end justify-end">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const updated = formData.secondaryBankAccounts!.filter((_, i) => i !== index);
+                                                            setFormData({ ...formData, secondaryBankAccounts: updated });
+                                                        }}
+                                                        className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-500 hover:text-white transition-all shadow-sm"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="py-6 text-center bg-white/50 border border-dashed border-blue-100 rounded-xl">
+                                        <p className="text-[10px] font-black text-blue-300 uppercase tracking-widest">No secondary accounts added</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Actions */}
@@ -455,7 +637,17 @@ export default function CustomerForm() {
                             disabled={loading}
                             className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                         >
-                            {loading ? 'Saving...' : (isEdit ? 'Submit Customer' : 'Create Customer')}
+                            {loading ? 'Saving...' : (
+                                isEdit ? (
+                                    currentCustomer?.kycStatus === 'DRAFT' || currentCustomer?.kycStatus === 'RETURNED' || currentCustomer?.kycStatus === 'REJECTED'
+                                        ? 'Submit for Verification'
+                                        : 'Update Customer'
+                                ) : (
+                                    JSON.parse(localStorage.getItem('user') || '{}').role === 'MAKER'
+                                        ? 'Create & Save Draft'
+                                        : 'Create Customer'
+                                )
+                            )}
                         </button>
                     </div>
                 </form>

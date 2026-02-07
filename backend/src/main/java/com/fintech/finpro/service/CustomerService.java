@@ -6,6 +6,8 @@ import com.fintech.finpro.dto.CustomerDTO;
 import com.fintech.finpro.entity.Customer;
 import com.fintech.finpro.enums.CustomerType;
 import com.fintech.finpro.repository.CustomerRepository;
+import com.fintech.finpro.repository.UserRepository;
+import com.fintech.finpro.security.SecurityUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +21,9 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final com.fintech.finpro.repository.BankRepository bankRepository;
+    private final com.fintech.finpro.repository.CustomerBankAccountRepository customerBankAccountRepository;
+    private final com.fintech.finpro.repository.IPOApplicationRepository ipoApplicationRepository;
+    private final UserRepository userRepository;
     private final org.modelmapper.ModelMapper modelMapper;
 
     @Transactional
@@ -35,17 +40,31 @@ public class CustomerService {
                 .dateOfBirth(dto.getDateOfBirth())
                 .contactNumber(dto.getContactNumber())
                 .bankAccountNumber(dto.getBankAccountNumber())
-                .contactNumber(dto.getContactNumber())
-                .bankAccountNumber(dto.getBankAccountNumber())
                 .address(dto.getAddress())
                 .citizenshipNumber(dto.getCitizenshipNumber())
                 .nidNumber(dto.getNidNumber())
                 .customerCode(generateCustomerCode())
-                .kycStatus("PENDING")
+                .photoPath(dto.getPhotoPath())
+                .signaturePath(dto.getSignaturePath())
+                .guardianPhotoPath(dto.getGuardianPhotoPath())
+                .guardianSignaturePath(dto.getGuardianSignaturePath())
                 .build();
 
+        // Set creator
+        String email = SecurityUtils.getCurrentUserEmail();
+        if (email != null) {
+            userRepository.findByEmail(email).ifPresent(u -> customer.setCreatedByUserId(u.getId()));
+        }
+
+        // Enforce DRAFT for MAKER
+        if (SecurityUtils.isMaker()) {
+            customer.setKycStatus("DRAFT");
+        } else {
+            customer.setKycStatus("PENDING");
+        }
+
         // Set Bank
-        com.fintech.finpro.entity.Bank bank = bankRepository.findById(dto.getBankId())
+        com.fintech.finpro.entity.Bank bank = bankRepository.findById(java.util.Objects.requireNonNull(dto.getBankId()))
                 .orElseThrow(() -> new RuntimeException("Bank not found with ID: " + dto.getBankId()));
         customer.setBank(bank);
 
@@ -58,7 +77,7 @@ public class CustomerService {
             if (dto.getGuardianId() == null) {
                 throw new RuntimeException("Guardian is required for minor customers (age < 18)");
             }
-            Customer guardian = customerRepository.findById(dto.getGuardianId())
+            Customer guardian = customerRepository.findById(java.util.Objects.requireNonNull(dto.getGuardianId()))
                     .orElseThrow(() -> new RuntimeException("Guardian not found with ID: " + dto.getGuardianId()));
 
             // Validate guardian is MAJOR and APPROVED
@@ -83,7 +102,7 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public CustomerDTO getCustomerById(Long id) {
-        Customer customer = customerRepository.findById(id)
+        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
         return mapToDTO(customer);
     }
@@ -125,7 +144,7 @@ public class CustomerService {
 
     @Transactional
     public CustomerDTO updateCustomer(Long id, CustomerCreateDTO dto) {
-        Customer customer = customerRepository.findById(id)
+        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
 
         // Update basic fields
@@ -141,7 +160,8 @@ public class CustomerService {
         // Update Bank
         if (dto.getBankId() != null
                 && (customer.getBank() == null || !customer.getBank().getId().equals(dto.getBankId()))) {
-            com.fintech.finpro.entity.Bank bank = bankRepository.findById(dto.getBankId())
+            com.fintech.finpro.entity.Bank bank = bankRepository
+                    .findById(java.util.Objects.requireNonNull(dto.getBankId()))
                     .orElseThrow(() -> new RuntimeException("Bank not found with ID: " + dto.getBankId()));
             customer.setBank(bank);
         }
@@ -149,6 +169,10 @@ public class CustomerService {
         customer.setAddress(dto.getAddress());
         customer.setCitizenshipNumber(dto.getCitizenshipNumber());
         customer.setNidNumber(dto.getNidNumber());
+        customer.setPhotoPath(dto.getPhotoPath());
+        customer.setSignaturePath(dto.getSignaturePath());
+        customer.setGuardianPhotoPath(dto.getGuardianPhotoPath());
+        customer.setGuardianSignaturePath(dto.getGuardianSignaturePath());
 
         // Recalculate age and type
         customer.calculateAge();
@@ -159,11 +183,18 @@ public class CustomerService {
             if (dto.getGuardianId() == null) {
                 throw new RuntimeException("Guardian is required for minor customers");
             }
-            Customer guardian = customerRepository.findById(dto.getGuardianId())
+            Customer guardian = customerRepository.findById(java.util.Objects.requireNonNull(dto.getGuardianId()))
                     .orElseThrow(() -> new RuntimeException("Guardian not found"));
             customer.setGuardian(guardian);
         } else {
             customer.setGuardian(null);
+        }
+
+        // If status was DRAFT, REJECTED, or RETURNED, move to PENDING on "Submit"
+        if ("DRAFT".equals(customer.getKycStatus()) || "REJECTED".equals(customer.getKycStatus())
+                || "RETURNED".equals(customer.getKycStatus())) {
+            customer.setKycStatus("PENDING");
+            customer.setRemarks(null); // Clear remarks on resubmit
         }
 
         Customer saved = customerRepository.save(customer);
@@ -187,12 +218,25 @@ public class CustomerService {
                 .nidNumber(dto.getNidNumber())
                 .customerCode(generateCustomerCode())
                 .kycStatus("DRAFT")
+                .photoPath(dto.getPhotoPath())
+                .signaturePath(dto.getSignaturePath())
+                .guardianPhotoPath(dto.getGuardianPhotoPath())
+                .guardianSignaturePath(dto.getGuardianSignaturePath())
                 .build();
+
+        // Set creator
+        String creatorEmail = SecurityUtils.getCurrentUserEmail();
+        if (creatorEmail != null) {
+            userRepository.findByEmail(creatorEmail).ifPresent(u -> customer.setCreatedByUserId(u.getId()));
+        }
 
         // Bank is optional for draft
         if (dto.getBankId() != null && dto.getBankId() > 0) {
-            com.fintech.finpro.entity.Bank bank = bankRepository.findById(dto.getBankId()).orElse(null);
-            customer.setBank(bank);
+            Long bankId = dto.getBankId();
+            if (bankId != null) {
+                com.fintech.finpro.entity.Bank bank = bankRepository.findById(bankId).orElse(null);
+                customer.setBank(bank);
+            }
         }
 
         // Calculate age/type if DOB present
@@ -203,7 +247,8 @@ public class CustomerService {
 
         // Guardian optional for draft
         if (dto.getGuardianId() != null) {
-            customerRepository.findById(dto.getGuardianId()).ifPresent(customer::setGuardian);
+            customerRepository.findById(java.util.Objects.requireNonNull(dto.getGuardianId()))
+                    .ifPresent(customer::setGuardian);
         }
 
         // Manual fields
@@ -231,7 +276,7 @@ public class CustomerService {
 
     @Transactional
     public CustomerDTO updateDraft(Long id, CustomerDraftDTO dto) {
-        Customer customer = customerRepository.findById(id)
+        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
 
         if (dto.getFirstName() != null)
@@ -258,11 +303,12 @@ public class CustomerService {
             customer.setNidNumber(dto.getNidNumber());
 
         if (dto.getBankId() != null && dto.getBankId() > 0) {
-            bankRepository.findById(dto.getBankId()).ifPresent(customer::setBank);
+            bankRepository.findById(java.util.Objects.requireNonNull(dto.getBankId())).ifPresent(customer::setBank);
         }
 
         if (dto.getGuardianId() != null) {
-            customerRepository.findById(dto.getGuardianId()).ifPresent(customer::setGuardian);
+            customerRepository.findById(java.util.Objects.requireNonNull(dto.getGuardianId()))
+                    .ifPresent(customer::setGuardian);
         }
 
         if (dto.getGuardianName() != null)
@@ -275,27 +321,42 @@ public class CustomerService {
         customer.determineCustomerType();
 
         Customer updated = customerRepository.save(customer);
+        syncPrimaryBankAccount(updated);
         return mapToDTO(updated);
     }
 
     @Transactional
     public void deleteCustomer(Long id) {
-        Customer customer = customerRepository.findById(id)
+        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
 
-        // Check if customer is a guardian for any minors
+        // Check if customer is a guardian for any minors (referential integrity)
         List<Customer> dependents = customerRepository.findByGuardianId(id);
         if (!dependents.isEmpty()) {
             throw new RuntimeException(
-                    "Cannot delete customer who is a guardian for " + dependents.size() + " minor(s)");
+                    "Cannot delete customer who is a guardian for " + dependents.size()
+                            + " minor(s). Please reassign or delete minors first.");
         }
 
-        customerRepository.delete(customer);
+        // Delete dependent bank accounts
+        List<com.fintech.finpro.entity.CustomerBankAccount> accounts = customerBankAccountRepository
+                .findByCustomerId(id);
+        if (!accounts.isEmpty()) {
+            customerBankAccountRepository.deleteAll(accounts);
+        }
+
+        // Delete dependent IPO applications
+        List<com.fintech.finpro.entity.IPOApplication> applications = ipoApplicationRepository.findByCustomerId(id);
+        if (!applications.isEmpty()) {
+            ipoApplicationRepository.deleteAll(applications);
+        }
+
+        customerRepository.delete(java.util.Objects.requireNonNull(customer));
     }
 
     @Transactional
     public CustomerDTO approveCustomer(Long id, Long approvedByUserId) {
-        Customer customer = customerRepository.findById(id)
+        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
 
         customer.setKycStatus("APPROVED");
@@ -306,14 +367,27 @@ public class CustomerService {
     }
 
     @Transactional
-    public CustomerDTO rejectCustomer(Long id) {
-        Customer customer = customerRepository.findById(id)
+    public CustomerDTO rejectCustomer(Long id, String remarks) {
+        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
 
         customer.setKycStatus("REJECTED");
+        customer.setRemarks(remarks);
 
         Customer rejected = customerRepository.save(customer);
         return mapToDTO(rejected);
+    }
+
+    @Transactional
+    public CustomerDTO returnCustomer(Long id, String remarks) {
+        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
+                .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
+
+        customer.setKycStatus("RETURNED");
+        customer.setRemarks(remarks);
+
+        Customer returned = customerRepository.save(customer);
+        return mapToDTO(returned);
     }
 
     @Transactional
@@ -373,6 +447,7 @@ public class CustomerService {
                         : null)
                 .address(customer.getAddress())
                 .kycStatus(customer.getKycStatus())
+                .remarks(customer.getRemarks())
                 .createdByUserId(customer.getCreatedByUserId())
                 .approvedByUserId(customer.getApprovedByUserId())
                 .createdAt(customer.getCreatedAt())
@@ -388,6 +463,10 @@ public class CustomerService {
         dto.setCitizenshipNumber(customer.getCitizenshipNumber());
         dto.setNidNumber(customer.getNidNumber());
         dto.setCustomerCode(customer.getCustomerCode());
+        dto.setPhotoPath(customer.getPhotoPath());
+        dto.setSignaturePath(customer.getSignaturePath());
+        dto.setGuardianPhotoPath(customer.getGuardianPhotoPath());
+        dto.setGuardianSignaturePath(customer.getGuardianSignaturePath());
 
         return dto;
     }
@@ -403,5 +482,29 @@ public class CustomerService {
         long currentSequence = Long.parseLong(maxCode.substring(4));
         long nextSequence = currentSequence + 1;
         return yearPrefix + String.format("%07d", nextSequence);
+    }
+
+    @Transactional
+    public void syncPrimaryBankAccount(Customer customer) {
+        if (customer.getBank() != null && customer.getBankAccountNumber() != null) {
+            // Check if already exists
+            boolean exists = customerBankAccountRepository.findByCustomerIdAndAccountNumber(
+                    customer.getId(), customer.getBankAccountNumber()).isPresent();
+
+            if (!exists) {
+                com.fintech.finpro.entity.CustomerBankAccount account = com.fintech.finpro.entity.CustomerBankAccount
+                        .builder()
+                        .customer(customer)
+                        .bank(customer.getBank())
+                        .accountNumber(customer.getBankAccountNumber())
+                        .accountType(com.fintech.finpro.enums.AccountType.SAVINGS)
+                        .isPrimary(true)
+                        .status("ACTIVE")
+                        .build();
+                @SuppressWarnings("null")
+                com.fintech.finpro.entity.CustomerBankAccount savedAccount = (com.fintech.finpro.entity.CustomerBankAccount) customerBankAccountRepository
+                        .save(account);
+            }
+        }
     }
 }

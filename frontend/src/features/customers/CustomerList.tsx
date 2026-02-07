@@ -40,11 +40,24 @@ export default function CustomerList() {
     };
 
     const handleReject = async (id: number) => {
+        const remarks = prompt('Enter rejection remarks:');
+        if (remarks === null) return;
         try {
-            await customerApi.reject(id);
+            await customerApi.reject(id, remarks);
             loadCustomers();
         } catch (error) {
             console.error('Failed to reject customer:', error);
+        }
+    };
+
+    const handleReturn = async (id: number) => {
+        const remarks = prompt('Enter return remarks:');
+        if (remarks === null) return;
+        try {
+            await customerApi.return(id, remarks);
+            loadCustomers();
+        } catch (error) {
+            console.error('Failed to return customer:', error);
         }
     };
 
@@ -63,7 +76,9 @@ export default function CustomerList() {
         const colors = {
             PENDING: 'bg-yellow-100 text-yellow-800',
             APPROVED: 'bg-green-100 text-green-800',
-            REJECTED: 'bg-red-100 text-red-800'
+            REJECTED: 'bg-red-100 text-red-800',
+            RETURNED: 'bg-orange-100 text-orange-800',
+            DRAFT: 'bg-gray-100 text-gray-800'
         };
         return colors[status] || 'bg-gray-100 text-gray-800';
     };
@@ -122,6 +137,8 @@ export default function CustomerList() {
                             <option value="PENDING">Pending</option>
                             <option value="APPROVED">Approved</option>
                             <option value="REJECTED">Rejected</option>
+                            <option value="RETURNED">Returned</option>
+                            <option value="DRAFT">Draft</option>
                         </select>
                     </div>
                 </div>
@@ -137,6 +154,7 @@ export default function CustomerList() {
                     <table className="w-full">
                         <thead className="bg-gray-50">
                             <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer ID</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Age</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
@@ -149,8 +167,14 @@ export default function CustomerList() {
                         <tbody className="divide-y divide-gray-200">
                             {customers.map((customer) => (
                                 <tr key={customer.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4">
-                                        <div className="font-medium text-gray-900">{customer.fullName}</div>
+                                    <td className="px-6 py-4 text-sm font-mono text-blue-600">
+                                        {customer.customerCode || 'N/A'}
+                                    </td>
+                                    <td
+                                        className="px-6 py-4 cursor-pointer group"
+                                        onClick={() => navigate(`/customers/${customer.id}`)}
+                                    >
+                                        <div className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{customer.fullName}</div>
                                         <div className="text-sm text-gray-500">{customer.email}</div>
                                     </td>
                                     <td className="px-6 py-4 text-sm">{customer.age}</td>
@@ -176,28 +200,47 @@ export default function CustomerList() {
                                             >
                                                 View
                                             </button>
-                                            {customer.kycStatus === 'PENDING' && (
-                                                <>
+                                            {localStorage.getItem('user') && JSON.parse(localStorage.getItem('user')!).role !== 'CHECKER' && (
+                                                <button
+                                                    onClick={() => navigate(`/customers/${customer.id}/edit`)}
+                                                    className="text-indigo-600 hover:text-indigo-800"
+                                                >
+                                                    {customer.kycStatus === 'DRAFT' || customer.kycStatus === 'RETURNED' || customer.kycStatus === 'REJECTED' ? 'Submit' : 'Edit'}
+                                                </button>
+                                            )}
+                                            {customer.kycStatus === 'PENDING' &&
+                                                localStorage.getItem('user') &&
+                                                ['ADMIN', 'CHECKER', 'SUPERADMIN'].includes(JSON.parse(localStorage.getItem('user')!).role) && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleApprove(customer.id)}
+                                                            className="text-green-600 hover:text-green-800"
+                                                        >
+                                                            Approve
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleReject(customer.id)}
+                                                            className="text-red-600 hover:text-red-800"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleReturn(customer.id)}
+                                                            className="text-orange-600 hover:text-orange-800"
+                                                        >
+                                                            Return
+                                                        </button>
+                                                    </>
+                                                )}
+                                            {localStorage.getItem('user') &&
+                                                ['ADMIN', 'SUPERADMIN'].includes(JSON.parse(localStorage.getItem('user')!).role) && (
                                                     <button
-                                                        onClick={() => handleApprove(customer.id)}
-                                                        className="text-green-600 hover:text-green-800"
-                                                    >
-                                                        Approve
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleReject(customer.id)}
+                                                        onClick={() => handleDelete(customer.id)}
                                                         className="text-red-600 hover:text-red-800"
                                                     >
-                                                        Reject
+                                                        Delete
                                                     </button>
-                                                </>
-                                            )}
-                                            <button
-                                                onClick={() => handleDelete(customer.id)}
-                                                className="text-red-600 hover:text-red-800"
-                                            >
-                                                Delete
-                                            </button>
+                                                )}
                                         </div>
                                     </td>
                                 </tr>

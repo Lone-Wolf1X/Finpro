@@ -23,10 +23,10 @@ public class Customer extends BaseEntity {
     @Column(name = "last_name", nullable = false)
     private String lastName;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String phone;
 
     @Enumerated(EnumType.STRING)
@@ -75,8 +75,27 @@ public class Customer extends BaseEntity {
 
     private String address;
 
-    @Column(name = "kyc_status", nullable = false) // PENDING, APPROVED, REJECTED
+    @Column(name = "kyc_status", nullable = false) // PENDING, APPROVED, REJECTED, RETURNED
     private String kycStatus;
+
+    @Column(name = "remarks")
+    private String remarks;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "investor_id")
+    private Investor investor;
+
+    @Column(name = "photo_path")
+    private String photoPath;
+
+    @Column(name = "signature_path")
+    private String signaturePath;
+
+    @Column(name = "guardian_photo_path")
+    private String guardianPhotoPath;
+
+    @Column(name = "guardian_signature_path")
+    private String guardianSignaturePath;
 
     @Column(name = "created_by_user_id")
     private Long createdByUserId;

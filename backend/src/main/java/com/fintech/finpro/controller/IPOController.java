@@ -22,18 +22,21 @@ public class IPOController {
     private final IPOService ipoService;
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     public ResponseEntity<IPODTO> createIPO(@Valid @RequestBody IPOCreateDTO dto) {
         IPODTO created = ipoService.createIPO(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @GetMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<IPODTO> getIPOById(@PathVariable Long id) {
         IPODTO ipo = ipoService.getIPOById(id);
         return ResponseEntity.ok(ipo);
     }
 
     @GetMapping
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<IPODTO>> getAllIPOs(@RequestParam(required = false) String status) {
         List<IPODTO> ipos;
 
@@ -47,18 +50,21 @@ public class IPOController {
     }
 
     @GetMapping("/active")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<IPODTO>> getActiveIPOs() {
         List<IPODTO> ipos = ipoService.getActiveIPOs();
         return ResponseEntity.ok(ipos);
     }
 
     @GetMapping("/upcoming")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<IPODTO>> getUpcomingIPOs() {
         List<IPODTO> ipos = ipoService.getUpcomingIPOs();
         return ResponseEntity.ok(ipos);
     }
 
     @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     public ResponseEntity<IPODTO> updateIPO(
             @PathVariable Long id,
             @Valid @RequestBody IPOCreateDTO dto) {
@@ -67,6 +73,7 @@ public class IPOController {
     }
 
     @PutMapping("/{id}/status")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     public ResponseEntity<IPODTO> updateIPOStatus(
             @PathVariable Long id,
             @RequestParam String status) {
@@ -75,12 +82,14 @@ public class IPOController {
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     public ResponseEntity<Map<String, String>> deleteIPO(@PathVariable Long id) {
         ipoService.deleteIPO(id);
         return ResponseEntity.ok(Map.of("message", "IPO deleted successfully"));
     }
 
     @PostMapping("/auto-close")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     public ResponseEntity<Map<String, String>> autoCloseExpiredIPOs() {
         ipoService.autoCloseExpiredIPOs();
         return ResponseEntity.ok(Map.of("message", "Expired IPOs closed successfully"));

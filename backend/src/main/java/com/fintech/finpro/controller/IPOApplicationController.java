@@ -22,36 +22,42 @@ public class IPOApplicationController {
     private final IPOApplicationService applicationService;
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
     public ResponseEntity<IPOApplicationDTO> createApplication(@Valid @RequestBody IPOApplicationCreateDTO dto) {
         IPOApplicationDTO created = applicationService.createApplication(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @GetMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<IPOApplicationDTO> getApplicationById(@PathVariable Long id) {
         IPOApplicationDTO application = applicationService.getApplicationById(id);
         return ResponseEntity.ok(application);
     }
 
     @GetMapping("/customer/{customerId}")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<IPOApplicationDTO>> getApplicationsByCustomerId(@PathVariable Long customerId) {
         List<IPOApplicationDTO> applications = applicationService.getApplicationsByCustomerId(customerId);
         return ResponseEntity.ok(applications);
     }
 
     @GetMapping("/ipo/{ipoId}")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<IPOApplicationDTO>> getApplicationsByIpoId(@PathVariable Long ipoId) {
         List<IPOApplicationDTO> applications = applicationService.getApplicationsByIpoId(ipoId);
         return ResponseEntity.ok(applications);
     }
 
     @GetMapping("/pending")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<IPOApplicationDTO>> getPendingApplications() {
         List<IPOApplicationDTO> applications = applicationService.getPendingApplications();
         return ResponseEntity.ok(applications);
     }
 
     @GetMapping
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<IPOApplicationDTO>> getApplicationsByStatus(@RequestParam String status) {
         List<IPOApplicationDTO> applications = applicationService.getApplicationsByStatus(
                 ApplicationStatus.valueOf(status.toUpperCase()));
@@ -59,6 +65,7 @@ public class IPOApplicationController {
     }
 
     @PutMapping("/{id}/approve")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('CHECKER', 'ADMIN', 'SUPERADMIN')")
     public ResponseEntity<IPOApplicationDTO> approveApplication(
             @PathVariable Long id,
             @RequestParam String approvedBy) {
@@ -67,6 +74,7 @@ public class IPOApplicationController {
     }
 
     @PutMapping("/{id}/reject")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('CHECKER', 'ADMIN', 'SUPERADMIN')")
     public ResponseEntity<IPOApplicationDTO> rejectApplication(
             @PathVariable Long id,
             @RequestParam String reason) {
@@ -75,6 +83,7 @@ public class IPOApplicationController {
     }
 
     @PutMapping("/{id}/payment-status")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('CHECKER', 'ADMIN', 'SUPERADMIN')")
     public ResponseEntity<IPOApplicationDTO> updatePaymentStatus(
             @PathVariable Long id,
             @RequestParam String status) {
@@ -84,6 +93,7 @@ public class IPOApplicationController {
     }
 
     @PutMapping("/{id}/allot")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('CHECKER', 'ADMIN', 'SUPERADMIN')")
     public ResponseEntity<IPOApplicationDTO> allotShares(
             @PathVariable Long id,
             @RequestParam Integer quantity) {

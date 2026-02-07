@@ -23,7 +23,7 @@ public class BankAccountService {
     @Transactional
     public BankAccountDTO createBankAccount(BankAccountCreateDTO dto) {
         // Validate customer exists
-        Customer customer = customerRepository.findById(dto.getCustomerId())
+        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(dto.getCustomerId()))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + dto.getCustomerId()));
 
         // Check for duplicate account number
@@ -48,13 +48,13 @@ public class BankAccountService {
                 .status("ACTIVE")
                 .build();
 
-        CustomerBankAccount saved = bankAccountRepository.save(bankAccount);
+        CustomerBankAccount saved = bankAccountRepository.save(java.util.Objects.requireNonNull(bankAccount));
         return mapToDTO(saved);
     }
 
     @Transactional(readOnly = true)
     public BankAccountDTO getBankAccountById(Long id) {
-        CustomerBankAccount account = bankAccountRepository.findById(id)
+        CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + id));
         return mapToDTO(account);
     }
@@ -82,7 +82,7 @@ public class BankAccountService {
 
     @Transactional
     public BankAccountDTO setPrimaryAccount(Long accountId) {
-        CustomerBankAccount account = bankAccountRepository.findById(accountId)
+        CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(accountId))
                 .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + accountId));
 
         // Unset other primary accounts for this customer
@@ -97,7 +97,7 @@ public class BankAccountService {
 
     @Transactional
     public BankAccountDTO updateBankAccount(Long id, BankAccountCreateDTO dto) {
-        CustomerBankAccount account = bankAccountRepository.findById(id)
+        CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + id));
 
         account.setBankName(dto.getBankName());
@@ -118,7 +118,7 @@ public class BankAccountService {
 
     @Transactional
     public void deleteBankAccount(Long id) {
-        CustomerBankAccount account = bankAccountRepository.findById(id)
+        CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + id));
 
         // Don't allow deletion of primary account if there are other accounts

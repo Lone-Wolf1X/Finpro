@@ -51,7 +51,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserDTO getUserById(Long id) {
-        User user = userRepository.findById(id)
+        User user = userRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
 
         // Check access
@@ -121,7 +121,7 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public UserDTO updateUser(Long id, UpdateUserRequest request) {
-        User user = userRepository.findById(id)
+        User user = userRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
 
         String currentUserEmail = com.fintech.finpro.security.SecurityUtils.getCurrentUserEmail();
@@ -180,14 +180,14 @@ public class UserServiceImpl implements UserService {
             user.setStaffId(request.getStaffId());
         }
 
-        User updatedUser = userRepository.save(user);
+        User updatedUser = userRepository.save(java.util.Objects.requireNonNull(user));
         return modelMapper.map(updatedUser, UserDTO.class);
     }
 
     @Override
     @Transactional
     public void deleteUser(Long id) {
-        if (!userRepository.existsById(id)) {
+        if (!userRepository.existsById(java.util.Objects.requireNonNull(id))) {
             throw new RuntimeException("User not found with id: " + id);
         }
         // Hard delete for now, implementing soft delete is an option but CRUD usually
@@ -195,6 +195,6 @@ public class UserServiceImpl implements UserService {
         // Or we can just set status to INACTIVE. Let's do hard delete as per standard
         // CRUD,
         // but typically in finance we soft delete. For now, stick to repository delete.
-        userRepository.deleteById(id);
+        userRepository.deleteById(java.util.Objects.requireNonNull(id));
     }
 }

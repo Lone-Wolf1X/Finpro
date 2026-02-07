@@ -1,7 +1,9 @@
 package com.fintech.finpro.tenant;
 
+import com.fintech.finpro.repository.TenantRepository;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -12,7 +14,10 @@ import java.io.IOException;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class TenantFilter implements Filter {
+
+    private final TenantRepository tenantRepository;
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
@@ -49,15 +54,15 @@ public class TenantFilter implements Filter {
     }
 
     private Long getTenantIdFromKey(String tenantKey) {
-        // TODO: Implement database lookup
-        // For now, return default tenant
-        return 1L;
+        return tenantRepository.findByTenantKey(tenantKey)
+                .map(com.fintech.finpro.entity.Tenant::getId)
+                .orElse(1L); // Fallback to default for now
     }
 
     private Long getTenantIdFromSubdomain(String subdomain) {
-        // TODO: Implement database lookup
-        // For now, return default tenant
-        return 1L;
+        return tenantRepository.findBySubdomain(subdomain)
+                .map(com.fintech.finpro.entity.Tenant::getId)
+                .orElse(1L); // Fallback to default for now
     }
 
     private String extractSubdomain(String serverName) {

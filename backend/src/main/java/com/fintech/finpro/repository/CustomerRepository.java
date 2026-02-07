@@ -8,7 +8,6 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface CustomerRepository extends JpaRepository<Customer, Long> {
@@ -41,4 +40,6 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     boolean existsByEmail(String email);
 
     boolean existsByPhone(String phone);
+
+    long countByKycStatus(String kycStatus);
 }

@@ -7,11 +7,16 @@ import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import Dashboard from './features/dashboard/Dashboard';
 import UserManagement from './features/users/UserManagement';
-import CustomerManagement from './features/customers/CustomerManagement';
+import SystemAccountManagement from './features/admin/SystemAccountManagement';
+
 import CustomerList from './features/customers/CustomerList';
 import CustomerForm from './features/customers/CustomerForm';
 import IPOList from './features/customers/IPOList';
 import IPOApplicationForm from './features/customers/IPOApplicationForm';
+import IPOApplicationAdminList from './features/customers/IPOApplicationAdminList';
+import CustomerProfile from './features/customers/CustomerProfile';
+import BulkDepositPage from './features/customers/BulkDepositPage';
+import BulkDepositVerificationPage from './features/customers/BulkDepositVerificationPage';
 import BankList from './features/banks/BankList';
 import './index.css';
 
@@ -47,7 +52,7 @@ function App() {
               path="customers"
               element={
                 <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN']}>
-                  <CustomerManagement />
+                  <CustomerList />
                 </ProtectedRoute>
               }
             />
@@ -71,6 +76,14 @@ function App() {
               path="customers/:id"
               element={
                 <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN']}>
+                  <CustomerProfile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="customers/:id/edit"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
                   <CustomerForm />
                 </ProtectedRoute>
               }
@@ -84,10 +97,34 @@ function App() {
               }
             />
             <Route
+              path="ipo-applications"
+              element={
+                <ProtectedRoute requiredRole={['CHECKER', 'ADMIN', 'SUPERADMIN']}>
+                  <IPOApplicationAdminList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="ipo-applications/new"
               element={
                 <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
                   <IPOApplicationForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="bulk-deposits/create"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
+                  <BulkDepositPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="bulk-deposits/verify"
+              element={
+                <ProtectedRoute requiredRole={['CHECKER', 'ADMIN', 'SUPERADMIN']}>
+                  <BulkDepositVerificationPage />
                 </ProtectedRoute>
               }
             />
@@ -104,6 +141,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole={['ADMIN', 'SUPERADMIN']}>
                   <BankList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/system-accounts"
+              element={
+                <ProtectedRoute requiredRole={['ADMIN', 'SUPERADMIN']}>
+                  <SystemAccountManagement />
                 </ProtectedRoute>
               }
             />

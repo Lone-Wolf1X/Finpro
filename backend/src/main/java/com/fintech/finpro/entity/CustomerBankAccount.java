@@ -17,6 +17,10 @@ public class CustomerBankAccount extends BaseEntity {
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bank_id")
+    private Bank bank;
+
     @Column(name = "bank_name", nullable = false, length = 100)
     private String bankName;
 

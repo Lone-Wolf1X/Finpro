@@ -21,30 +21,35 @@ public class BankAccountController {
     private final BankAccountService bankAccountService;
 
     @PostMapping
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
     public ResponseEntity<BankAccountDTO> createBankAccount(@Valid @RequestBody BankAccountCreateDTO dto) {
         BankAccountDTO created = bankAccountService.createBankAccount(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @GetMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<BankAccountDTO> getBankAccountById(@PathVariable Long id) {
         BankAccountDTO account = bankAccountService.getBankAccountById(id);
         return ResponseEntity.ok(account);
     }
 
     @GetMapping("/customer/{customerId}")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<BankAccountDTO>> getAccountsByCustomerId(@PathVariable Long customerId) {
         List<BankAccountDTO> accounts = bankAccountService.getAccountsByCustomerId(customerId);
         return ResponseEntity.ok(accounts);
     }
 
     @GetMapping("/customer/{customerId}/active")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<BankAccountDTO>> getActiveAccountsByCustomerId(@PathVariable Long customerId) {
         List<BankAccountDTO> accounts = bankAccountService.getActiveAccountsByCustomerId(customerId);
         return ResponseEntity.ok(accounts);
     }
 
     @GetMapping("/customer/{customerId}/primary")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
     public ResponseEntity<BankAccountDTO> getPrimaryAccount(@PathVariable Long customerId) {
         BankAccountDTO account = bankAccountService.getPrimaryAccount(customerId);
         if (account == null) {
@@ -54,6 +59,7 @@ public class BankAccountController {
     }
 
     @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
     public ResponseEntity<BankAccountDTO> updateBankAccount(
             @PathVariable Long id,
             @Valid @RequestBody BankAccountCreateDTO dto) {
@@ -62,12 +68,14 @@ public class BankAccountController {
     }
 
     @PutMapping("/{id}/set-primary")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
     public ResponseEntity<BankAccountDTO> setPrimaryAccount(@PathVariable Long id) {
         BankAccountDTO updated = bankAccountService.setPrimaryAccount(id);
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     public ResponseEntity<Map<String, String>> deleteBankAccount(@PathVariable Long id) {
         bankAccountService.deleteBankAccount(id);
         return ResponseEntity.ok(Map.of("message", "Bank account deleted successfully"));

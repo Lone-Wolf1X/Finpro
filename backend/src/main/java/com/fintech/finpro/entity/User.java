@@ -61,6 +61,16 @@ public class User extends BaseEntity {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
+    /**
+     * Get full name of the user
+     */
+    public String getFullName() {
+        if (firstName != null && lastName != null) {
+            return firstName + " " + lastName;
+        }
+        return name != null ? name : userId;
+    }
+
     @PrePersist
     protected void onCreate() {
         if (status == null) {

@@ -33,7 +33,7 @@ public class IPOApplicationService {
     @Transactional
     public IPOApplicationDTO createApplication(IPOApplicationCreateDTO dto) {
         // Validate customer
-        Customer customer = customerRepository.findById(dto.getCustomerId())
+        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(dto.getCustomerId()))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + dto.getCustomerId()));
 
         // Validate customer KYC status
@@ -42,7 +42,7 @@ public class IPOApplicationService {
         }
 
         // Validate IPO
-        IPO ipo = ipoRepository.findById(dto.getIpoId())
+        IPO ipo = ipoRepository.findById(java.util.Objects.requireNonNull(dto.getIpoId()))
                 .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + dto.getIpoId()));
 
         // Check if IPO is open
@@ -64,7 +64,8 @@ public class IPOApplicationService {
         }
 
         // Validate bank account
-        CustomerBankAccount bankAccount = bankAccountRepository.findById(dto.getBankAccountId())
+        CustomerBankAccount bankAccount = bankAccountRepository
+                .findById(java.util.Objects.requireNonNull(dto.getBankAccountId()))
                 .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + dto.getBankAccountId()));
 
         // Verify bank account belongs to customer
@@ -89,13 +90,13 @@ public class IPOApplicationService {
                 .appliedAt(LocalDateTime.now())
                 .build();
 
-        IPOApplication saved = applicationRepository.save(application);
+        IPOApplication saved = applicationRepository.save(java.util.Objects.requireNonNull(application));
         return mapToDTO(saved);
     }
 
     @Transactional(readOnly = true)
     public IPOApplicationDTO getApplicationById(Long id) {
-        IPOApplication application = applicationRepository.findById(id)
+        IPOApplication application = applicationRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO application not found with ID: " + id));
         return mapToDTO(application);
     }
@@ -130,7 +131,7 @@ public class IPOApplicationService {
 
     @Transactional
     public IPOApplicationDTO approveApplication(Long id, String approvedBy) {
-        IPOApplication application = applicationRepository.findById(id)
+        IPOApplication application = applicationRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO application not found with ID: " + id));
 
         if (!ApplicationStatus.PENDING.equals(application.getApplicationStatus())) {
@@ -147,7 +148,7 @@ public class IPOApplicationService {
 
     @Transactional
     public IPOApplicationDTO rejectApplication(Long id, String reason) {
-        IPOApplication application = applicationRepository.findById(id)
+        IPOApplication application = applicationRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO application not found with ID: " + id));
 
         if (!ApplicationStatus.PENDING.equals(application.getApplicationStatus())) {
@@ -164,7 +165,7 @@ public class IPOApplicationService {
 
     @Transactional
     public IPOApplicationDTO updatePaymentStatus(Long id, PaymentStatus paymentStatus) {
-        IPOApplication application = applicationRepository.findById(id)
+        IPOApplication application = applicationRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO application not found with ID: " + id));
 
         application.setPaymentStatus(paymentStatus);
@@ -175,7 +176,7 @@ public class IPOApplicationService {
 
     @Transactional
     public IPOApplicationDTO allotShares(Long id, Integer allottedQuantity) {
-        IPOApplication application = applicationRepository.findById(id)
+        IPOApplication application = applicationRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO application not found with ID: " + id));
 
         if (!ApplicationStatus.APPROVED.equals(application.getApplicationStatus())) {

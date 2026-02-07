@@ -8,7 +8,9 @@ import {
     Building2,
     LogOut,
     Menu,
-    Landmark
+    Landmark,
+    Wallet,
+    CheckSquare
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
@@ -49,8 +51,12 @@ const MainLayout = () => {
     const menuItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['SUPERADMIN', 'ADMIN', 'MAKER', 'CHECKER'] },
         { icon: Users, label: 'User Management', path: '/users', roles: ['SUPERADMIN', 'ADMIN'] },
-        { icon: UserCog, label: 'Customers', path: '/customers', roles: ['SUPERADMIN', 'ADMIN', 'MAKER', 'CHECKER'] },
+        { icon: UserCog, label: 'Customer Management', path: '/customers', roles: ['SUPERADMIN', 'ADMIN', 'MAKER', 'CHECKER'] },
+        { icon: CheckSquare, label: 'IPO Applications', path: '/ipo-applications', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER'] },
         { icon: Landmark, label: 'Manage Banks', path: '/banks', roles: ['SUPERADMIN', 'ADMIN'] },
+        { icon: LayoutDashboard, label: 'System Accounts', path: '/admin/system-accounts', roles: ['SUPERADMIN', 'ADMIN'] },
+        { icon: Wallet, label: 'Bulk Deposit', path: '/bulk-deposits/create', roles: ['SUPERADMIN', 'ADMIN', 'MAKER'] },
+        { icon: Wallet, label: 'Verify Deposits', path: '/bulk-deposits/verify', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER'] },
         { icon: Building2, label: 'Tenant Settings', path: '/tenant', roles: ['SUPERADMIN', 'ADMIN'] },
     ];
 

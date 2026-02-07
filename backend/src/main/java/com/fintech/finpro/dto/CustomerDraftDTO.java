@@ -52,4 +52,9 @@ public class CustomerDraftDTO {
 
     @Size(max = 500, message = "Address must not exceed 500 characters")
     private String address;
+
+    private String photoPath;
+    private String signaturePath;
+    private String guardianPhotoPath;
+    private String guardianSignaturePath;
 }

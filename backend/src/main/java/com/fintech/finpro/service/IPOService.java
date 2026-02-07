@@ -57,13 +57,13 @@ public class IPOService {
                 .description(dto.getDescription())
                 .build();
 
-        IPO saved = ipoRepository.save(ipo);
+        IPO saved = ipoRepository.save(java.util.Objects.requireNonNull(ipo));
         return mapToDTO(saved);
     }
 
     @Transactional(readOnly = true)
     public IPODTO getIPOById(Long id) {
-        IPO ipo = ipoRepository.findById(id)
+        IPO ipo = ipoRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + id));
         return mapToDTO(ipo);
     }
@@ -98,7 +98,7 @@ public class IPOService {
 
     @Transactional
     public IPODTO updateIPO(Long id, IPOCreateDTO dto) {
-        IPO ipo = ipoRepository.findById(id)
+        IPO ipo = ipoRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + id));
 
         ipo.setCompanyName(dto.getCompanyName());
@@ -119,7 +119,7 @@ public class IPOService {
 
     @Transactional
     public IPODTO updateIPOStatus(Long id, IPOStatus status) {
-        IPO ipo = ipoRepository.findById(id)
+        IPO ipo = ipoRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + id));
 
         ipo.setStatus(status);
@@ -130,11 +130,11 @@ public class IPOService {
 
     @Transactional
     public void deleteIPO(Long id) {
-        IPO ipo = ipoRepository.findById(id)
+        IPO ipo = ipoRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + id));
 
         // Only allow deletion if no applications exist (handled by FK constraint)
-        ipoRepository.delete(ipo);
+        ipoRepository.delete(java.util.Objects.requireNonNull(ipo));
     }
 
     /**

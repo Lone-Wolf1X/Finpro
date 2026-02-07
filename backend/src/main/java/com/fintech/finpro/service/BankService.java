@@ -22,7 +22,7 @@ public class BankService {
             throw new RuntimeException("Bank with this name already exists");
         }
         Bank bank = modelMapper.map(dto, Bank.class);
-        bank = bankRepository.save(bank);
+        bank = bankRepository.save(java.util.Objects.requireNonNull(bank));
         return modelMapper.map(bank, BankDTO.class);
     }
 
@@ -39,7 +39,7 @@ public class BankService {
     }
 
     public BankDTO updateBank(Long id, BankDTO dto) {
-        Bank bank = bankRepository.findById(id)
+        Bank bank = bankRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Bank not found"));
 
         bank.setName(dto.getName());
@@ -53,6 +53,6 @@ public class BankService {
     }
 
     public void deleteBank(Long id) {
-        bankRepository.deleteById(id);
+        bankRepository.deleteById(java.util.Objects.requireNonNull(id));
     }
 }
