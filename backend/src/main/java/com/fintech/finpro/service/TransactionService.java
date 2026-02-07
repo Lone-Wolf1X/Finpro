@@ -22,7 +22,8 @@ public class TransactionService {
          * Logic: If Investor assigned -> Debit Investor, else -> Debit Core Capital.
          */
         @Transactional
-        public void depositToCustomer(Long customerId, BigDecimal amount, String remarks, Long makerId) {
+        public void depositToCustomer(Long customerId, BigDecimal amount, String remarks, Long makerId,
+                        com.fintech.finpro.entity.CustomerBankAccount bankAccount) {
                 Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(customerId))
                                 .orElseThrow(() -> new RuntimeException("Customer not found"));
 
@@ -63,8 +64,17 @@ public class TransactionService {
                                 amount,
                                 sourceParticulars,
                                 LedgerTransactionType.DEPOSIT,
-                                "DEP-" + System.currentTimeMillis(),
-                                makerId);
+                                null,
+                                makerId,
+                                bankAccount);
+        }
+
+        /**
+         * Backward compatibility
+         */
+        @Transactional
+        public void depositToCustomer(Long customerId, BigDecimal amount, String remarks, Long makerId) {
+                depositToCustomer(customerId, amount, remarks, makerId, null);
         }
 
         /**
@@ -72,7 +82,8 @@ public class TransactionService {
          * Logic: Debit Customer -> Credit Source (Investor or Core).
          */
         @Transactional
-        public void withdrawalFromCustomer(Long customerId, BigDecimal amount, String remarks, Long makerId) {
+        public void withdrawalFromCustomer(Long customerId, BigDecimal amount, String remarks, Long makerId,
+                        com.fintech.finpro.entity.CustomerBankAccount bankAccount) {
                 Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(customerId))
                                 .orElseThrow(() -> new RuntimeException("Customer not found"));
 
@@ -114,7 +125,13 @@ public class TransactionService {
                                 amount,
                                 destinationParticulars,
                                 LedgerTransactionType.WITHDRAWAL,
-                                "WTH-" + System.currentTimeMillis(),
-                                makerId);
+                                null,
+                                makerId,
+                                bankAccount);
+        }
+
+        @Transactional
+        public void withdrawalFromCustomer(Long customerId, BigDecimal amount, String remarks, Long makerId) {
+                withdrawalFromCustomer(customerId, amount, remarks, makerId, null);
         }
 }

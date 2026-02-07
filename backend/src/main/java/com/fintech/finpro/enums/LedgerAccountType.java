@@ -7,5 +7,6 @@ public enum LedgerAccountType {
     CUSTOMER_LEDGER,
     FEE_INCOME,
     TAX_PAYABLE,
-    EXPENSE
+    EXPENSE,
+    IPO_FUND_HOLD
 }

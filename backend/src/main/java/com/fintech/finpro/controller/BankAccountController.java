@@ -19,6 +19,67 @@ import java.util.Map;
 public class BankAccountController {
 
     private final BankAccountService bankAccountService;
+    private final com.fintech.finpro.service.SystemAccountService systemAccountService;
+    private final com.fintech.finpro.security.JwtService jwtService;
+
+    @PostMapping("/{id}/deposit")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<com.fintech.finpro.dto.PendingTransactionDTO> createDeposit(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> payload,
+            @RequestHeader("Authorization") String token) {
+
+        Long makerId = jwtService.extractUserId(token.substring(7));
+        java.math.BigDecimal amount = new java.math.BigDecimal(payload.get("amount").toString());
+        String description = (String) payload.get("description");
+
+        com.fintech.finpro.dto.PendingTransactionDTO created = bankAccountService.createDeposit(id, amount, description,
+                makerId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PostMapping("/{id}/withdraw")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<com.fintech.finpro.dto.PendingTransactionDTO> createWithdrawal(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> payload,
+            @RequestHeader("Authorization") String token) {
+
+        Long makerId = jwtService.extractUserId(token.substring(7));
+        java.math.BigDecimal amount = new java.math.BigDecimal(payload.get("amount").toString());
+        String description = (String) payload.get("description");
+
+        com.fintech.finpro.dto.PendingTransactionDTO created = bankAccountService.createWithdrawal(id, amount,
+                description, makerId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @GetMapping("/{id}/statement")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
+    public ResponseEntity<com.fintech.finpro.dto.AccountStatementDTO> getAccountStatement(
+            @PathVariable Long id,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate) {
+
+        return ResponseEntity.ok(bankAccountService.getAccountStatement(id, startDate, endDate));
+    }
+
+    @GetMapping("/system-accounts/{id}/statement")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<com.fintech.finpro.dto.AccountStatementDTO> getSystemAccountStatement(
+            @PathVariable Long id,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate startDate,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate endDate) {
+
+        return ResponseEntity.ok(systemAccountService.getSystemAccountStatement(id, startDate, endDate));
+    }
+
+    @GetMapping("/{id}/pending")
+    @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<com.fintech.finpro.dto.PendingTransactionDTO>> getPendingTransactions(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(bankAccountService.getPendingTransactions(id));
+    }
 
     @PostMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")

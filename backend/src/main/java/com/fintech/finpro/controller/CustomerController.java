@@ -137,4 +137,49 @@ public class CustomerController {
         CustomerDTO returned = customerService.returnCustomer(id, remarks);
         return ResponseEntity.ok(returned);
     }
+
+    @PostMapping("/{id}/bank-accounts")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<com.fintech.finpro.entity.CustomerBankAccount> addBankAccount(
+            @PathVariable Long id,
+            @RequestBody com.fintech.finpro.dto.AddBankAccountDTO dto) {
+        com.fintech.finpro.entity.CustomerBankAccount account = customerService.addSecondaryBankAccount(id, dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(account);
+    }
+
+    @PostMapping(value = "/{id}/upload-photo", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<Map<String, String>> uploadCustomerPhoto(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        String photoPath = customerService.uploadCustomerPhoto(id, file);
+        return ResponseEntity.ok(Map.of("photoPath", photoPath));
+    }
+
+    @PostMapping(value = "/{id}/upload-signature", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<Map<String, String>> uploadCustomerSignature(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        String signaturePath = customerService.uploadCustomerSignature(id, file);
+        return ResponseEntity.ok(Map.of("signaturePath", signaturePath));
+    }
+
+    @PostMapping(value = "/{id}/upload-guardian-photo", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<Map<String, String>> uploadGuardianPhoto(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        String photoPath = customerService.uploadGuardianPhoto(id, file);
+        return ResponseEntity.ok(Map.of("guardianPhotoPath", photoPath));
+    }
+
+    @PostMapping(value = "/{id}/upload-guardian-signature", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<Map<String, String>> uploadGuardianSignature(
+            @PathVariable Long id,
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        String signaturePath = customerService.uploadGuardianSignature(id, file);
+        return ResponseEntity.ok(Map.of("guardianSignaturePath", signaturePath));
+    }
 }

@@ -97,6 +97,10 @@ public class CustomerService {
         }
 
         Customer saved = customerRepository.save(customer);
+
+        // Sync primary bank account to customer_bank_accounts table
+        syncPrimaryBankAccount(saved);
+
         return mapToDTO(saved);
     }
 
@@ -198,6 +202,13 @@ public class CustomerService {
         }
 
         Customer saved = customerRepository.save(customer);
+
+        // Sync primary bank account to customer_bank_accounts table if bank info
+        // provided
+        if (saved.getBank() != null && saved.getBankAccountNumber() != null) {
+            syncPrimaryBankAccount(saved);
+        }
+
         return mapToDTO(saved);
     }
 
@@ -496,15 +507,130 @@ public class CustomerService {
                         .builder()
                         .customer(customer)
                         .bank(customer.getBank())
+                        .bankName(customer.getBank().getName())
                         .accountNumber(customer.getBankAccountNumber())
                         .accountType(com.fintech.finpro.enums.AccountType.SAVINGS)
                         .isPrimary(true)
                         .status("ACTIVE")
                         .build();
-                @SuppressWarnings("null")
-                com.fintech.finpro.entity.CustomerBankAccount savedAccount = (com.fintech.finpro.entity.CustomerBankAccount) customerBankAccountRepository
-                        .save(account);
+                customerBankAccountRepository.save(account);
             }
+        }
+    }
+
+    @Transactional
+    public com.fintech.finpro.entity.CustomerBankAccount addSecondaryBankAccount(Long customerId,
+            com.fintech.finpro.dto.AddBankAccountDTO dto) {
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + customerId));
+
+        com.fintech.finpro.entity.Bank bank = bankRepository.findById(dto.getBankId())
+                .orElseThrow(() -> new RuntimeException("Bank not found with ID: " + dto.getBankId()));
+
+        // Check if account already exists
+        boolean exists = customerBankAccountRepository.findByCustomerIdAndAccountNumber(
+                customerId, dto.getAccountNumber()).isPresent();
+
+        if (exists) {
+            throw new RuntimeException("Bank account already exists for this customer");
+        }
+
+        com.fintech.finpro.entity.CustomerBankAccount account = com.fintech.finpro.entity.CustomerBankAccount
+                .builder()
+                .customer(customer)
+                .bank(bank)
+                .bankName(bank.getName())
+                .accountNumber(dto.getAccountNumber())
+                .accountType(dto.getAccountType())
+                .branchName(dto.getBranchName())
+                .ifscCode(dto.getIfscCode())
+                .isPrimary(false) // Secondary accounts are never primary
+                .status("ACTIVE")
+                .build();
+
+        return customerBankAccountRepository.save(account);
+    }
+
+    // File Upload Methods
+    @org.springframework.beans.factory.annotation.Value("${file.upload.dir:uploads/customers}")
+    private String uploadDir;
+
+    public String uploadCustomerPhoto(Long customerId, org.springframework.web.multipart.MultipartFile file) {
+        return uploadFile(customerId, file, "photo");
+    }
+
+    public String uploadCustomerSignature(Long customerId, org.springframework.web.multipart.MultipartFile file) {
+        return uploadFile(customerId, file, "signature");
+    }
+
+    public String uploadGuardianPhoto(Long customerId, org.springframework.web.multipart.MultipartFile file) {
+        return uploadFile(customerId, file, "guardian-photo");
+    }
+
+    public String uploadGuardianSignature(Long customerId, org.springframework.web.multipart.MultipartFile file) {
+        return uploadFile(customerId, file, "guardian-signature");
+    }
+
+    private String uploadFile(Long customerId, org.springframework.web.multipart.MultipartFile file, String type) {
+        try {
+            // Validate file
+            if (file.isEmpty()) {
+                throw new RuntimeException("File is empty");
+            }
+
+            // Validate file type
+            String contentType = file.getContentType();
+            if (contentType == null || !contentType.startsWith("image/")) {
+                throw new RuntimeException("Only image files are allowed");
+            }
+
+            // Validate file size (2MB max)
+            if (file.getSize() > 2 * 1024 * 1024) {
+                throw new RuntimeException("File size must not exceed 2MB");
+            }
+
+            // Get customer
+            Customer customer = customerRepository.findById(customerId)
+                    .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + customerId));
+
+            // Create upload directory
+            java.nio.file.Path uploadPath = java.nio.file.Paths.get(uploadDir, customerId.toString());
+            if (!java.nio.file.Files.exists(uploadPath)) {
+                java.nio.file.Files.createDirectories(uploadPath);
+            }
+
+            // Generate unique filename
+            String originalFilename = file.getOriginalFilename();
+            String extension = originalFilename != null && originalFilename.contains(".")
+                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                    : ".jpg";
+            String filename = type + "-" + System.currentTimeMillis() + extension;
+
+            // Save file
+            java.nio.file.Path filePath = uploadPath.resolve(filename);
+            file.transferTo(filePath.toFile());
+
+            // Update customer record
+            String relativePath = uploadDir + "/" + customerId + "/" + filename;
+            switch (type) {
+                case "photo":
+                    customer.setPhotoPath(relativePath);
+                    break;
+                case "signature":
+                    customer.setSignaturePath(relativePath);
+                    break;
+                case "guardian-photo":
+                    customer.setGuardianPhotoPath(relativePath);
+                    break;
+                case "guardian-signature":
+                    customer.setGuardianSignaturePath(relativePath);
+                    break;
+            }
+            customerRepository.save(customer);
+
+            return relativePath;
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to upload file: " + e.getMessage());
         }
     }
 }

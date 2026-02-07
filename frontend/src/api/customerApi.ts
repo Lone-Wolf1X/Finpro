@@ -74,6 +74,18 @@ export const bankAccountApi = {
 
     delete: (id: number) =>
         apiClient.delete(`/bank-accounts/${id}`),
+
+    deposit: (id: number, data: { amount: number; description: string }) =>
+        apiClient.post(`/bank-accounts/${id}/deposit`, data),
+
+    withdraw: (id: number, data: { amount: number; description: string }) =>
+        apiClient.post(`/bank-accounts/${id}/withdraw`, data),
+
+    getStatement: (id: number, startDate: string, endDate: string) =>
+        apiClient.get<any>(`/bank-accounts/${id}/statement`, { params: { startDate, endDate } }),
+
+    getSystemAccountStatement: (id: number, startDate: string, endDate: string) =>
+        apiClient.get<any>(`/bank-accounts/system-accounts/${id}/statement`, { params: { startDate, endDate } }),
 };
 
 // IPO API
@@ -138,6 +150,16 @@ export const ipoApplicationApi = {
     allotShares: (id: number, quantity: number) =>
         apiClient.put<IPOApplication>(`/ipo-applications/${id}/allot`, null, { params: { quantity } }),
 };
+
+// Ledger (System Accounts) API
+export const ledgerApi = {
+    getSystemAccounts: () =>
+        apiClient.get<any[]>('/ledger/system-accounts'),
+
+    createSystemAccount: (name: string, type: string) =>
+        apiClient.post('/ledger/system-accounts', { name, type }),
+};
+
 // Bulk Deposit API
 export const bulkDepositApi = {
     getAll: () =>
@@ -154,4 +176,16 @@ export const bulkDepositApi = {
 
     reject: (batchId: string, remarks: string, checkerId: number) =>
         apiClient.put<any>(`/bulk-deposits/${batchId}/reject`, { remarks }, { params: { checkerId } }),
+};
+
+// Transaction Verification API
+export const transactionVerificationApi = {
+    getPending: () =>
+        apiClient.get<import('../types').PendingTransaction[]>('/transactions/pending'),
+
+    approve: (id: number) =>
+        apiClient.post<import('../types').PendingTransaction>(`/transactions/${id}/approve`),
+
+    reject: (id: number, reason: string) =>
+        apiClient.post<import('../types').PendingTransaction>(`/transactions/${id}/reject`, { reason }),
 };

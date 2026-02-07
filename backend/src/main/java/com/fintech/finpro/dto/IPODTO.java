@@ -23,10 +23,10 @@ public class IPODTO {
     private BigDecimal pricePerShare;
     private Integer minQuantity;
     private Integer maxQuantity;
-    private LocalDate openDate;
-    private LocalDate closeDate;
-    private LocalDate allotmentDate;
-    private LocalDate listingDate;
+    private LocalDateTime openDate;
+    private LocalDateTime closeDate;
+    private LocalDateTime allotmentDate;
+    private LocalDateTime listingDate;
     private IPOStatus status;
     private String description;
     private boolean isOpen;

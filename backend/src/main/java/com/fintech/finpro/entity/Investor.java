@@ -5,6 +5,10 @@ import lombok.*;
 
 import java.math.BigDecimal;
 
+/**
+ * Investor Entity
+ * Manages investors and their capital accounts
+ */
 @Entity
 @Table(name = "investors")
 @Getter
@@ -14,23 +18,47 @@ import java.math.BigDecimal;
 @Builder
 public class Investor extends BaseEntity {
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(name = "total_investment", precision = 15, scale = 2)
-    @Builder.Default
-    private BigDecimal totalInvestment = BigDecimal.ZERO;
+    @Column(name = "investor_code", nullable = false, unique = true, length = 20)
+    private String investorCode; // Auto-generated: ADMIN, INV001, INV002
 
-    @Column(name = "held_amount", precision = 15, scale = 2)
-    @Builder.Default
-    private BigDecimal heldAmount = BigDecimal.ZERO;
+    @Column(name = "nickname", nullable = false, length = 100)
+    private String nickname; // For easy identification in customer profiles
 
-    @Column(name = "available_balance", precision = 15, scale = 2)
-    @Builder.Default
-    private BigDecimal availableBalance = BigDecimal.ZERO;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "capital_account_id", nullable = false)
+    private SystemAccount capitalAccount;
 
-    @Column(name = "profit_share_percentage", precision = 5, scale = 2)
+    @Column(name = "total_invested", precision = 15, scale = 2)
     @Builder.Default
-    private BigDecimal profitSharePercentage = new BigDecimal("60.00");
+    private BigDecimal totalInvested = BigDecimal.ZERO;
+
+    @Column(name = "total_returns", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal totalReturns = BigDecimal.ZERO;
+
+    @Column(name = "status", length = 20, nullable = false)
+    @Builder.Default
+    private String status = "ACTIVE"; // ACTIVE, INACTIVE
+
+    @Column(name = "is_admin", nullable = false)
+    @Builder.Default
+    private Boolean isAdmin = false; // true for admin investor (owns CORE_CAPITAL)
+
+    /**
+     * Check if this is the admin investor
+     */
+    public boolean isAdminInvestor() {
+        return Boolean.TRUE.equals(this.isAdmin);
+    }
+
+    /**
+     * Get capital balance from capital account
+     */
+    public BigDecimal getCapitalBalance() {
+        return this.capitalAccount != null ? this.capitalAccount.getBalance() : BigDecimal.ZERO;
+    }
 }

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { customerApi, transactionVerificationApi } from '@/api/customerApi';
 
 const MainLayout = () => {
     const { user, tenant } = useAppSelector((state) => state.auth);
@@ -22,6 +23,8 @@ const MainLayout = () => {
     const location = useLocation();
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [isMobile, setIsMobile] = useState(false);
+    const [pendingKycCount, setPendingKycCount] = useState(0);
+    const [pendingTxCount, setPendingTxCount] = useState(0);
 
     // Handle screen resize
     useEffect(() => {
@@ -35,12 +38,33 @@ const MainLayout = () => {
             }
         };
 
-        // Initial check
         handleResize();
-
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+
+        // Fetch notifications
+        fetchNotifications();
+        const interval = setInterval(fetchNotifications, 60000); // Poll every minute
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            clearInterval(interval);
+        };
     }, []);
+
+    const fetchNotifications = async () => {
+        if (!user || user.role === 'INVESTOR') return;
+        try {
+            const kycRes = await customerApi.getAll({ kycStatus: 'PENDING' });
+            setPendingKycCount(kycRes.data.length);
+
+            if (['CHECKER', 'ADMIN', 'SUPERADMIN'].includes(user.role)) {
+                const txRes = await transactionVerificationApi.getPending();
+                setPendingTxCount(txRes.data.length);
+            }
+        } catch (error) {
+            console.error('Failed to fetch notifications', error);
+        }
+    };
 
     const handleLogout = () => {
         dispatch(logout());
@@ -51,12 +75,16 @@ const MainLayout = () => {
     const menuItems = [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['SUPERADMIN', 'ADMIN', 'MAKER', 'CHECKER'] },
         { icon: Users, label: 'User Management', path: '/users', roles: ['SUPERADMIN', 'ADMIN'] },
-        { icon: UserCog, label: 'Customer Management', path: '/customers', roles: ['SUPERADMIN', 'ADMIN', 'MAKER', 'CHECKER'] },
+        { icon: UserCog, label: 'Customer Management', path: '/customers', roles: ['SUPERADMIN', 'ADMIN', 'MAKER', 'CHECKER'], badge: pendingKycCount },
+        { icon: Users, label: 'KYC Alignment', path: '/admin/kyc-alignment', roles: ['SUPERADMIN', 'ADMIN'] },
+        { icon: Landmark, label: 'Banking Operations', path: '/banking/operations', roles: ['MAKER', 'ADMIN', 'SUPERADMIN'] },
+        { icon: CheckSquare, label: 'Verify Transactions', path: '/transactions/verify', roles: ['CHECKER', 'ADMIN', 'SUPERADMIN'], badge: pendingTxCount },
         { icon: CheckSquare, label: 'IPO Applications', path: '/ipo-applications', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER'] },
+        { icon: LayoutDashboard, label: 'IPO Listings', path: '/ipos', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER'] },
         { icon: Landmark, label: 'Manage Banks', path: '/banks', roles: ['SUPERADMIN', 'ADMIN'] },
         { icon: LayoutDashboard, label: 'System Accounts', path: '/admin/system-accounts', roles: ['SUPERADMIN', 'ADMIN'] },
         { icon: Wallet, label: 'Bulk Deposit', path: '/bulk-deposits/create', roles: ['SUPERADMIN', 'ADMIN', 'MAKER'] },
-        { icon: Wallet, label: 'Verify Deposits', path: '/bulk-deposits/verify', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER'] },
+        { icon: Wallet, label: 'Verify Bulk Deposits', path: '/bulk-deposits/verify', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER'] },
         { icon: Building2, label: 'Tenant Settings', path: '/tenant', roles: ['SUPERADMIN', 'ADMIN'] },
     ];
 
@@ -125,7 +153,7 @@ const MainLayout = () => {
                     <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
                         {filteredMenuItems.map((item) => (
                             <Link
-                                key={item.path}
+                                key={item.label}
                                 to={item.path}
                                 className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative
                                     ${location.pathname === item.path
@@ -138,6 +166,11 @@ const MainLayout = () => {
                                 <span className={`whitespace-nowrap transition-opacity duration-200 ${sidebarOpen ? 'opacity-100' : 'opacity-0 lg:hidden'}`}>
                                     {item.label}
                                 </span>
+                                {(item as any).badge > 0 && (
+                                    <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                        {(item as any).badge}
+                                    </span>
+                                )}
 
                                 {!sidebarOpen && (
                                     <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 hidden lg:block">

@@ -48,4 +48,31 @@ public class LedgerTransaction extends com.fintech.finpro.entity.BaseEntity {
     @Column(length = 20)
     @Builder.Default
     private String status = "PENDING";
+
+    // Enhanced tracking fields for core accounting system
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_bank_account_id")
+    private CustomerBankAccount customerBankAccount;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ledger_account_id")
+    private SystemAccount ledgerAccount; // System account (CORE_CAPITAL, EXPENSES_POOL, etc.)
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "investor_id")
+    private Investor investor;
+
+    @Column(name = "reference_type", length = 50)
+    private String referenceType; // ipo, subscription, casba_charge, etc.
+
+    @Column(name = "reference_id_long")
+    private Long referenceIdLong; // ID of the referenced entity
+
+    @Column(name = "is_dual_entry")
+    @Builder.Default
+    private Boolean isDualEntry = false; // true for investor-customer transactions
 }

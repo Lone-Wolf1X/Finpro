@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -33,10 +33,10 @@ public class IPOService {
 
         // Determine initial status
         IPOStatus status;
-        if (dto.getOpenDate().isAfter(LocalDate.now())) {
+        LocalDateTime now = LocalDateTime.now();
+        if (dto.getOpenDate().isAfter(now)) {
             status = IPOStatus.UPCOMING;
-        } else if (dto.getOpenDate().isBefore(LocalDate.now().plusDays(1)) &&
-                dto.getCloseDate().isAfter(LocalDate.now().minusDays(1))) {
+        } else if (!dto.getOpenDate().isAfter(now) && dto.getCloseDate().isAfter(now)) {
             status = IPOStatus.OPEN;
         } else {
             status = IPOStatus.CLOSED;

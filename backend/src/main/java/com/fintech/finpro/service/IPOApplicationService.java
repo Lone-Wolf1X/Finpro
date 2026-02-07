@@ -29,6 +29,7 @@ public class IPOApplicationService {
     private final CustomerRepository customerRepository;
     private final IPORepository ipoRepository;
     private final CustomerBankAccountRepository bankAccountRepository;
+    private final LedgerService ledgerService;
 
     @Transactional
     public IPOApplicationDTO createApplication(IPOApplicationCreateDTO dto) {
@@ -76,6 +77,37 @@ public class IPOApplicationService {
         // Calculate amount
         BigDecimal amount = ipo.getPricePerShare().multiply(BigDecimal.valueOf(dto.getQuantity()));
 
+        // Check and Hold funds
+        BigDecimal availableBalance = bankAccount.getBalance().subtract(bankAccount.getHeldBalance());
+        if (availableBalance.compareTo(amount) < 0) {
+            throw new RuntimeException("Insufficient available balance (Total - Held) in bank account");
+        }
+
+        // 1. Update Bank Account: Increase Held Balance
+        bankAccount.setHeldBalance(bankAccount.getHeldBalance().add(amount));
+        bankAccountRepository.save(bankAccount);
+
+        // 2. Perform Ledger Entry: Customer Ledger -> IPO Fund Hold
+        com.fintech.finpro.entity.LedgerAccount customerLedger = ledgerService.getOrCreateAccount(
+                customer.getFullName() + " - Ledger",
+                com.fintech.finpro.enums.LedgerAccountType.CUSTOMER_LEDGER,
+                customer.getId());
+
+        com.fintech.finpro.entity.LedgerAccount ipoHoldAcc = ledgerService.getOrCreateAccount(
+                "IPO Fund Hold",
+                com.fintech.finpro.enums.LedgerAccountType.IPO_FUND_HOLD,
+                null);
+
+        ledgerService.recordTransaction(
+                customerLedger,
+                ipoHoldAcc,
+                amount,
+                "IPO Application for " + ipo.getCompanyName() + " (" + dto.getQuantity() + " shares)",
+                com.fintech.finpro.enums.LedgerTransactionType.WITHDRAWAL, // Customer logic
+                null,
+                null, // Maker ID (could be customer but usually maker)
+                bankAccount);
+
         // Create application
         IPOApplication application = IPOApplication.builder()
                 .customer(customer)
@@ -84,7 +116,7 @@ public class IPOApplicationService {
                 .quantity(dto.getQuantity())
                 .amount(amount)
                 .applicationStatus(ApplicationStatus.PENDING)
-                .paymentStatus(PaymentStatus.PENDING)
+                .paymentStatus(PaymentStatus.PAID) // Fund held successfully
                 .allotmentQuantity(0)
                 .allotmentStatus("PENDING")
                 .appliedAt(LocalDateTime.now())
@@ -136,6 +168,43 @@ public class IPOApplicationService {
 
         if (!ApplicationStatus.PENDING.equals(application.getApplicationStatus())) {
             throw new RuntimeException("Only PENDING applications can be approved");
+        }
+
+        // CASBA Logic: Deduct NPR 5 Charge
+        CustomerBankAccount bankAccount = application.getBankAccount();
+        if (bankAccount != null) {
+            BigDecimal casbaCharge = BigDecimal.valueOf(5.00);
+
+            // Check available balance (excluding held amount)
+            BigDecimal available = bankAccount.getBalance().subtract(bankAccount.getHeldBalance());
+
+            // Even if low balance, CASBA might arguably force debit, but let's be safe
+            if (available.compareTo(casbaCharge) >= 0) {
+                // Deduct from Actual Balance
+                bankAccount.setBalance(bankAccount.getBalance().subtract(casbaCharge));
+                bankAccountRepository.save(bankAccount);
+
+                // Dedcut from Ledger: Customer -> Fee Income
+                com.fintech.finpro.entity.LedgerAccount customerLedger = ledgerService.getOrCreateAccount(
+                        application.getCustomer().getFullName() + " - Ledger",
+                        com.fintech.finpro.enums.LedgerAccountType.CUSTOMER_LEDGER,
+                        application.getCustomer().getId());
+
+                com.fintech.finpro.entity.LedgerAccount feeIncomeAcc = ledgerService.getOrCreateAccount(
+                        "CASBA Income",
+                        com.fintech.finpro.enums.LedgerAccountType.FEE_INCOME,
+                        null);
+
+                ledgerService.recordTransaction(
+                        customerLedger,
+                        feeIncomeAcc,
+                        casbaCharge,
+                        "CASBA Charge for IPO " + application.getIpo().getCompanyName(),
+                        com.fintech.finpro.enums.LedgerTransactionType.FEE,
+                        null,
+                        null,
+                        bankAccount);
+            }
         }
 
         application.setApplicationStatus(ApplicationStatus.APPROVED);
@@ -190,6 +259,63 @@ public class IPOApplicationService {
         application.setApplicationStatus(ApplicationStatus.ALLOTTED);
         application.setAllotmentQuantity(allottedQuantity);
         application.setAllotmentStatus(allottedQuantity > 0 ? "ALLOTTED" : "NOT_ALLOTTED");
+
+        // Settlement Logic
+        CustomerBankAccount bankAccount = application.getBankAccount();
+        BigDecimal totalAppliedAmount = application.getAmount(); // Original amount held
+        BigDecimal allottedAmount = application.getIpo().getPricePerShare()
+                .multiply(BigDecimal.valueOf(allottedQuantity));
+        BigDecimal refundAmount = totalAppliedAmount.subtract(allottedAmount);
+
+        if (bankAccount != null) {
+            // 1. Release Held Amount
+            bankAccount.setHeldBalance(bankAccount.getHeldBalance().subtract(totalAppliedAmount));
+
+            // 2. Deduct Allotted Amount from Actual Balance
+            bankAccount.setBalance(bankAccount.getBalance().subtract(allottedAmount));
+            bankAccountRepository.save(bankAccount);
+        }
+
+        // Ledger Settlement
+        com.fintech.finpro.entity.LedgerAccount ipoHoldAcc = ledgerService.getOrCreateAccount(
+                "IPO Fund Hold",
+                com.fintech.finpro.enums.LedgerAccountType.IPO_FUND_HOLD,
+                null);
+
+        com.fintech.finpro.entity.LedgerAccount customerLedger = ledgerService.getOrCreateAccount(
+                application.getCustomer().getFullName() + " - Ledger",
+                com.fintech.finpro.enums.LedgerAccountType.CUSTOMER_LEDGER,
+                application.getCustomer().getId());
+
+        com.fintech.finpro.entity.LedgerAccount coreCapitalAcc = ledgerService.getOrCreateAccount(
+                "Core Capital",
+                com.fintech.finpro.enums.LedgerAccountType.CORE_CAPITAL,
+                null);
+
+        if (allottedQuantity > 0) {
+            // Transfer Allotted Amount: IPO Hold -> Core Capital
+            ledgerService.recordTransaction(
+                    ipoHoldAcc,
+                    coreCapitalAcc,
+                    allottedAmount,
+                    "IPO Allotment: " + application.getIpo().getCompanyName() + " (" + allottedQuantity + " shares)",
+                    com.fintech.finpro.enums.LedgerTransactionType.TRANSFER,
+                    null,
+                    null);
+        }
+
+        if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+            // Transfer Refund Amount: IPO Hold -> Customer Ledger
+            ledgerService.recordTransaction(
+                    ipoHoldAcc,
+                    customerLedger,
+                    refundAmount,
+                    "IPO Refund: " + application.getIpo().getCompanyName(),
+                    com.fintech.finpro.enums.LedgerTransactionType.DEPOSIT,
+                    null,
+                    null,
+                    bankAccount);
+        }
 
         IPOApplication allotted = applicationRepository.save(application);
         return mapToDTO(allotted);

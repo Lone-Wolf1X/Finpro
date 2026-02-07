@@ -8,16 +8,22 @@ import ProtectedRoute from './components/common/ProtectedRoute';
 import Dashboard from './features/dashboard/Dashboard';
 import UserManagement from './features/users/UserManagement';
 import SystemAccountManagement from './features/admin/SystemAccountManagement';
+import SystemAccountDetails from './features/admin/SystemAccountDetails';
+import TransactionVerification from './features/admin/TransactionVerification';
+import KYCAlignment from './features/admin/KYCAlignment';
 
 import CustomerList from './features/customers/CustomerList';
 import CustomerForm from './features/customers/CustomerForm';
 import IPOList from './features/customers/IPOList';
 import IPOApplicationForm from './features/customers/IPOApplicationForm';
 import IPOApplicationAdminList from './features/customers/IPOApplicationAdminList';
+import IPOForm from './features/ipos/IPOForm';
 import CustomerProfile from './features/customers/CustomerProfile';
 import BulkDepositPage from './features/customers/BulkDepositPage';
 import BulkDepositVerificationPage from './features/customers/BulkDepositVerificationPage';
 import BankList from './features/banks/BankList';
+import BankAccountDetails from './features/banking/BankAccountDetails';
+import BankOperations from './features/banking/BankOperations';
 import './index.css';
 
 function App() {
@@ -97,6 +103,22 @@ function App() {
               }
             />
             <Route
+              path="ipos/new"
+              element={
+                <ProtectedRoute requiredRole={['ADMIN', 'SUPERADMIN']}>
+                  <IPOForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="ipos/:id/edit"
+              element={
+                <ProtectedRoute requiredRole={['ADMIN', 'SUPERADMIN']}>
+                  <IPOForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="ipo-applications"
               element={
                 <ProtectedRoute requiredRole={['CHECKER', 'ADMIN', 'SUPERADMIN']}>
@@ -149,6 +171,46 @@ function App() {
               element={
                 <ProtectedRoute requiredRole={['ADMIN', 'SUPERADMIN']}>
                   <SystemAccountManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/system-accounts/:id"
+              element={
+                <ProtectedRoute requiredRole={['ADMIN', 'SUPERADMIN']}>
+                  <SystemAccountDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="transactions/verify"
+              element={
+                <ProtectedRoute requiredRole={['CHECKER', 'ADMIN', 'SUPERADMIN']}>
+                  <TransactionVerification />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/kyc-alignment"
+              element={
+                <ProtectedRoute requiredRole={['ADMIN', 'SUPERADMIN']}>
+                  <KYCAlignment />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="banking/operations"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
+                  <BankOperations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="banking/accounts/:id"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN']}>
+                  <BankAccountDetails />
                 </ProtectedRoute>
               }
             />

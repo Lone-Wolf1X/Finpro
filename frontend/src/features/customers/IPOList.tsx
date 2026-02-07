@@ -47,7 +47,9 @@ export default function IPOList() {
         return new Date(dateString).toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
-            day: 'numeric'
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
         });
     };
 
@@ -76,8 +78,8 @@ export default function IPOList() {
                     <button
                         onClick={() => setFilter('ACTIVE')}
                         className={`px-4 py-2 rounded-lg ${filter === 'ACTIVE'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         Active IPOs
@@ -85,8 +87,8 @@ export default function IPOList() {
                     <button
                         onClick={() => setFilter('UPCOMING')}
                         className={`px-4 py-2 rounded-lg ${filter === 'UPCOMING'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         Upcoming
@@ -94,8 +96,8 @@ export default function IPOList() {
                     <button
                         onClick={() => setFilter('ALL')}
                         className={`px-4 py-2 rounded-lg ${filter === 'ALL'
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                     >
                         All IPOs

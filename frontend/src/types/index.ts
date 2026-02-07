@@ -155,6 +155,8 @@ export interface BankAccount {
     ifscCode?: string;
     branchName?: string;
     isPrimary: boolean;
+    balance?: number;
+    heldBalance?: number;
     status: string;
     createdAt: string;
     updatedAt: string;
@@ -168,6 +170,25 @@ export interface CreateBankAccountRequest {
     ifscCode?: string;
     branchName?: string;
     isPrimary?: boolean;
+}
+
+export interface BankTransaction {
+    id: number;
+    date: string;
+    type: string;
+    amount: number;
+    description: string;
+    referenceId?: string;
+    status: string;
+}
+
+export interface AccountStatement {
+    accountId: number;
+    accountNumber: string;
+    bankName: string;
+    customerName: string;
+    currentBalance: number;
+    transactions: BankTransaction[];
 }
 
 export interface IPO {
@@ -286,4 +307,17 @@ export interface CreateBulkDepositRequest {
         amount: number;
         remarks: string;
     }[];
+}
+
+export interface PendingTransaction {
+    id: number;
+    transactionType: string;
+    amount: number;
+    customerName?: string;
+    accountNumber?: string;
+    targetAccountName?: string;
+    description?: string;
+    makerName?: string;
+    createdAt: string;
+    status: string;
 }

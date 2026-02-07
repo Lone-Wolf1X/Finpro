@@ -7,7 +7,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @Data
 @Builder
@@ -40,14 +39,14 @@ public class IPOCreateDTO {
 
     @NotNull(message = "Open date is required")
     @FutureOrPresent(message = "Open date must be today or in the future")
-    private LocalDate openDate;
+    private java.time.LocalDateTime openDate;
 
     @NotNull(message = "Close date is required")
     @Future(message = "Close date must be in the future")
-    private LocalDate closeDate;
+    private java.time.LocalDateTime closeDate;
 
-    private LocalDate allotmentDate;
-    private LocalDate listingDate;
+    private java.time.LocalDateTime allotmentDate;
+    private java.time.LocalDateTime listingDate;
 
     @Size(max = 1000, message = "Description must not exceed 1000 characters")
     private String description;

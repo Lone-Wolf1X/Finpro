@@ -35,16 +35,16 @@ public class IPO extends BaseEntity {
     private Integer maxQuantity;
 
     @Column(name = "open_date", nullable = false)
-    private LocalDate openDate;
+    private java.time.LocalDateTime openDate;
 
     @Column(name = "close_date", nullable = false)
-    private LocalDate closeDate;
+    private java.time.LocalDateTime closeDate;
 
     @Column(name = "allotment_date")
-    private LocalDate allotmentDate;
+    private java.time.LocalDateTime allotmentDate;
 
     @Column(name = "listing_date")
-    private LocalDate listingDate;
+    private java.time.LocalDateTime listingDate;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
@@ -58,9 +58,10 @@ public class IPO extends BaseEntity {
      * Check if IPO is currently open for applications
      */
     public boolean isOpen() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
         return IPOStatus.OPEN.equals(this.status) &&
-                LocalDate.now().isAfter(this.openDate.minusDays(1)) &&
-                LocalDate.now().isBefore(this.closeDate.plusDays(1));
+                now.isAfter(this.openDate) &&
+                now.isBefore(this.closeDate);
     }
 
     /**
@@ -68,7 +69,7 @@ public class IPO extends BaseEntity {
      */
     public boolean isClosed() {
         return IPOStatus.CLOSED.equals(this.status) ||
-                LocalDate.now().isAfter(this.closeDate);
+                java.time.LocalDateTime.now().isAfter(this.closeDate);
     }
 
     /**

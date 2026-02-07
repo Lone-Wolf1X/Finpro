@@ -12,7 +12,8 @@ import java.util.Optional;
 @Repository
 public interface CustomerBankAccountRepository extends JpaRepository<CustomerBankAccount, Long> {
 
-    List<CustomerBankAccount> findByCustomerId(Long customerId);
+    @Query("SELECT b FROM CustomerBankAccount b WHERE b.customer.id = :customerId")
+    List<CustomerBankAccount> findByCustomerId(@Param("customerId") Long customerId);
 
     @Query("SELECT b FROM CustomerBankAccount b WHERE b.customer.id = :customerId AND b.status = 'ACTIVE'")
     List<CustomerBankAccount> findActiveAccountsByCustomerId(@Param("customerId") Long customerId);

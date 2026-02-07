@@ -12,153 +12,335 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
 public class BankAccountService {
 
-    private final CustomerBankAccountRepository bankAccountRepository;
-    private final CustomerRepository customerRepository;
+        private final CustomerBankAccountRepository bankAccountRepository;
+        private final CustomerRepository customerRepository;
+        private final com.fintech.finpro.repository.PendingTransactionRepository pendingTransactionRepository;
+        private final com.fintech.finpro.repository.LedgerTransactionRepository ledgerTransactionRepository;
+        private final SystemAccountService systemAccountService;
+        private final TransactionService transactionService;
 
-    @Transactional
-    public BankAccountDTO createBankAccount(BankAccountCreateDTO dto) {
-        // Validate customer exists
-        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(dto.getCustomerId()))
-                .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + dto.getCustomerId()));
+        @Transactional
+        public BankAccountDTO createBankAccount(BankAccountCreateDTO dto) {
+                // Validate customer exists
+                Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(dto.getCustomerId()))
+                                .orElseThrow(() -> new RuntimeException(
+                                                "Customer not found with ID: " + dto.getCustomerId()));
 
-        // Check for duplicate account number
-        if (bankAccountRepository.existsByCustomerIdAndAccountNumber(dto.getCustomerId(), dto.getAccountNumber())) {
-            throw new RuntimeException("Bank account already exists for this customer");
+                // Check for duplicate account number
+                if (bankAccountRepository.existsByCustomerIdAndAccountNumber(dto.getCustomerId(),
+                                dto.getAccountNumber())) {
+                        throw new RuntimeException("Bank account already exists for this customer");
+                }
+
+                // If this is set as primary, unset other primary accounts
+                if (Boolean.TRUE.equals(dto.getIsPrimary())) {
+                        unsetPrimaryAccounts(dto.getCustomerId());
+                }
+
+                // Build bank account entity
+                CustomerBankAccount bankAccount = CustomerBankAccount.builder()
+                                .customer(customer)
+                                .bankName(dto.getBankName())
+                                .accountNumber(dto.getAccountNumber())
+                                .accountType(dto.getAccountType())
+                                .ifscCode(dto.getIfscCode())
+                                .branchName(dto.getBranchName())
+                                .isPrimary(dto.getIsPrimary())
+                                .balance(BigDecimal.ZERO)
+                                .status("ACTIVE")
+                                .build();
+
+                CustomerBankAccount saved = java.util.Objects.requireNonNull(bankAccountRepository.save(bankAccount));
+                return mapToDTO(saved);
         }
 
-        // If this is set as primary, unset other primary accounts
-        if (Boolean.TRUE.equals(dto.getIsPrimary())) {
-            unsetPrimaryAccounts(dto.getCustomerId());
+        @Transactional(readOnly = true)
+        public com.fintech.finpro.dto.AccountStatementDTO getAccountStatement(Long accountId,
+                        java.time.LocalDate startDate,
+                        java.time.LocalDate endDate) {
+                CustomerBankAccount account = bankAccountRepository.findById(accountId)
+                                .orElseThrow(() -> new RuntimeException(
+                                                "Bank account not found with ID: " + accountId));
+
+                java.time.LocalDateTime startDateTime = startDate.atStartOfDay();
+                java.time.LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+                java.util.List<com.fintech.finpro.entity.LedgerTransaction> transactions = ledgerTransactionRepository
+                                .findByAccountAndDateRange(accountId, startDateTime, endDateTime);
+
+                java.util.List<com.fintech.finpro.dto.BankTransactionDTO> transactionDTOs = transactions.stream()
+                                .map(t -> com.fintech.finpro.dto.BankTransactionDTO.builder()
+                                                .id(t.getId())
+                                                .date(t.getCreatedAt())
+                                                .type(t.getTransactionType().name())
+                                                .amount(t.getAmount())
+                                                .description(t.getParticulars())
+                                                .referenceId(t.getReferenceId())
+                                                .status(t.getStatus())
+                                                .build())
+                                .collect(Collectors.toList());
+
+                return com.fintech.finpro.dto.AccountStatementDTO.builder()
+                                .accountId(accountId)
+                                .accountNumber(account.getAccountNumber())
+                                .bankName(account.getBankName())
+                                .customerName(account.getCustomer().getFullName())
+                                .currentBalance(account.getBalance())
+                                .transactions(transactionDTOs)
+                                .build();
         }
 
-        // Build bank account entity
-        CustomerBankAccount bankAccount = CustomerBankAccount.builder()
-                .customer(customer)
-                .bankName(dto.getBankName())
-                .accountNumber(dto.getAccountNumber())
-                .accountType(dto.getAccountType())
-                .ifscCode(dto.getIfscCode())
-                .branchName(dto.getBranchName())
-                .isPrimary(dto.getIsPrimary())
-                .status("ACTIVE")
-                .build();
-
-        CustomerBankAccount saved = bankAccountRepository.save(java.util.Objects.requireNonNull(bankAccount));
-        return mapToDTO(saved);
-    }
-
-    @Transactional(readOnly = true)
-    public BankAccountDTO getBankAccountById(Long id) {
-        CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(id))
-                .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + id));
-        return mapToDTO(account);
-    }
-
-    @Transactional(readOnly = true)
-    public List<BankAccountDTO> getAccountsByCustomerId(Long customerId) {
-        return bankAccountRepository.findByCustomerId(customerId).stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public List<BankAccountDTO> getActiveAccountsByCustomerId(Long customerId) {
-        return bankAccountRepository.findActiveAccountsByCustomerId(customerId).stream()
-                .map(this::mapToDTO)
-                .collect(Collectors.toList());
-    }
-
-    @Transactional(readOnly = true)
-    public BankAccountDTO getPrimaryAccount(Long customerId) {
-        return bankAccountRepository.findPrimaryAccountByCustomerId(customerId)
-                .map(this::mapToDTO)
-                .orElse(null);
-    }
-
-    @Transactional
-    public BankAccountDTO setPrimaryAccount(Long accountId) {
-        CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(accountId))
-                .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + accountId));
-
-        // Unset other primary accounts for this customer
-        unsetPrimaryAccounts(account.getCustomer().getId());
-
-        // Set this as primary
-        account.setIsPrimary(true);
-        CustomerBankAccount updated = bankAccountRepository.save(account);
-
-        return mapToDTO(updated);
-    }
-
-    @Transactional
-    public BankAccountDTO updateBankAccount(Long id, BankAccountCreateDTO dto) {
-        CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(id))
-                .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + id));
-
-        account.setBankName(dto.getBankName());
-        account.setAccountNumber(dto.getAccountNumber());
-        account.setAccountType(dto.getAccountType());
-        account.setIfscCode(dto.getIfscCode());
-        account.setBranchName(dto.getBranchName());
-
-        // Handle primary flag
-        if (Boolean.TRUE.equals(dto.getIsPrimary()) && !account.getIsPrimary()) {
-            unsetPrimaryAccounts(account.getCustomer().getId());
-            account.setIsPrimary(true);
+        @Transactional(readOnly = true)
+        public BankAccountDTO getBankAccountById(Long id) {
+                CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(id))
+                                .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + id));
+                return mapToDTO(account);
         }
 
-        CustomerBankAccount updated = bankAccountRepository.save(account);
-        return mapToDTO(updated);
-    }
-
-    @Transactional
-    public void deleteBankAccount(Long id) {
-        CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(id))
-                .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + id));
-
-        // Don't allow deletion of primary account if there are other accounts
-        if (account.getIsPrimary()) {
-            List<CustomerBankAccount> otherAccounts = bankAccountRepository
-                    .findByCustomerId(account.getCustomer().getId()).stream()
-                    .filter(a -> !a.getId().equals(id))
-                    .collect(Collectors.toList());
-
-            if (!otherAccounts.isEmpty()) {
-                throw new RuntimeException(
-                        "Cannot delete primary account. Please set another account as primary first.");
-            }
+        @Transactional(readOnly = true)
+        public List<BankAccountDTO> getAccountsByCustomerId(Long customerId) {
+                return bankAccountRepository.findByCustomerId(customerId).stream()
+                                .map(this::mapToDTO)
+                                .collect(Collectors.toList());
         }
 
-        bankAccountRepository.delete(account);
-    }
+        @Transactional(readOnly = true)
+        public List<BankAccountDTO> getActiveAccountsByCustomerId(Long customerId) {
+                return bankAccountRepository.findActiveAccountsByCustomerId(customerId).stream()
+                                .map(this::mapToDTO)
+                                .collect(Collectors.toList());
+        }
 
-    private void unsetPrimaryAccounts(Long customerId) {
-        bankAccountRepository.findPrimaryAccountByCustomerId(customerId)
-                .ifPresent(account -> {
-                    account.setIsPrimary(false);
-                    bankAccountRepository.save(account);
-                });
-    }
+        @Transactional(readOnly = true)
+        public BankAccountDTO getPrimaryAccount(Long customerId) {
+                return bankAccountRepository.findPrimaryAccountByCustomerId(customerId)
+                                .map(this::mapToDTO)
+                                .orElse(null);
+        }
 
-    private BankAccountDTO mapToDTO(CustomerBankAccount account) {
-        return BankAccountDTO.builder()
-                .id(account.getId())
-                .customerId(account.getCustomer().getId())
-                .customerName(account.getCustomer().getFullName())
-                .bankName(account.getBankName())
-                .accountNumber(account.getAccountNumber())
-                .accountType(account.getAccountType())
-                .ifscCode(account.getIfscCode())
-                .branchName(account.getBranchName())
-                .isPrimary(account.getIsPrimary())
-                .status(account.getStatus())
-                .createdAt(account.getCreatedAt())
-                .updatedAt(account.getUpdatedAt())
-                .build();
-    }
+        @Transactional
+        public BankAccountDTO setPrimaryAccount(Long accountId) {
+                CustomerBankAccount account = bankAccountRepository
+                                .findById(java.util.Objects.requireNonNull(accountId))
+                                .orElseThrow(() -> new RuntimeException(
+                                                "Bank account not found with ID: " + accountId));
+
+                // Unset other primary accounts for this customer
+                unsetPrimaryAccounts(account.getCustomer().getId());
+
+                // Set this as primary
+                account.setIsPrimary(true);
+                CustomerBankAccount updated = bankAccountRepository.save(account);
+
+                return mapToDTO(updated);
+        }
+
+        @Transactional
+        public BankAccountDTO updateBankAccount(Long id, BankAccountCreateDTO dto) {
+                CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(id))
+                                .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + id));
+
+                account.setBankName(dto.getBankName());
+                account.setAccountNumber(dto.getAccountNumber());
+                account.setAccountType(dto.getAccountType());
+                account.setIfscCode(dto.getIfscCode());
+                account.setBranchName(dto.getBranchName());
+
+                // Handle primary flag
+                if (Boolean.TRUE.equals(dto.getIsPrimary()) && !account.getIsPrimary()) {
+                        unsetPrimaryAccounts(account.getCustomer().getId());
+                        account.setIsPrimary(true);
+                }
+
+                CustomerBankAccount updated = bankAccountRepository.save(account);
+                return mapToDTO(updated);
+        }
+
+        @Transactional
+        public void deleteBankAccount(Long id) {
+                CustomerBankAccount account = bankAccountRepository.findById(java.util.Objects.requireNonNull(id))
+                                .orElseThrow(() -> new RuntimeException("Bank account not found with ID: " + id));
+
+                // Don't allow deletion of primary account if there are other accounts
+                if (account.getIsPrimary()) {
+                        List<CustomerBankAccount> otherAccounts = bankAccountRepository
+                                        .findByCustomerId(account.getCustomer().getId()).stream()
+                                        .filter(a -> !a.getId().equals(id))
+                                        .collect(Collectors.toList());
+
+                        if (!otherAccounts.isEmpty()) {
+                                throw new RuntimeException(
+                                                "Cannot delete primary account. Please set another account as primary first.");
+                        }
+                }
+
+                bankAccountRepository.delete(account);
+        }
+
+        private void unsetPrimaryAccounts(Long customerId) {
+                bankAccountRepository.findPrimaryAccountByCustomerId(customerId)
+                                .ifPresent(account -> {
+                                        account.setIsPrimary(false);
+                                        bankAccountRepository.save(account);
+                                });
+        }
+
+        private BankAccountDTO mapToDTO(CustomerBankAccount account) {
+                Long customerId = null;
+                String customerName = null;
+
+                if (account.getCustomer() != null) {
+                        customerId = account.getCustomer().getId();
+                        customerName = account.getCustomer().getFullName();
+                }
+
+                return BankAccountDTO.builder()
+                                .id(account.getId())
+                                .customerId(customerId)
+                                .customerName(customerName)
+                                .bankName(account.getBankName())
+                                .accountNumber(account.getAccountNumber())
+                                .accountType(account.getAccountType())
+                                .ifscCode(account.getIfscCode())
+                                .branchName(account.getBranchName())
+                                .isPrimary(account.getIsPrimary())
+                                .balance(account.getBalance())
+                                .status(account.getStatus())
+                                .createdAt(account.getCreatedAt())
+                                .updatedAt(account.getUpdatedAt())
+                                .build();
+        }
+
+        /**
+         * Create deposit transaction (Maker)
+         */
+        /**
+         * Create deposit transaction (Maker)
+         * Auto-verifies if source (Core Capital/Investor) has sufficient balance.
+         */
+        @Transactional
+        public com.fintech.finpro.dto.PendingTransactionDTO createDeposit(Long accountId, java.math.BigDecimal amount,
+                        String description, Long makerId) {
+                CustomerBankAccount account = bankAccountRepository.findById(accountId)
+                                .orElseThrow(() -> new RuntimeException(
+                                                "Bank account not found with ID: " + accountId));
+
+                Customer customer = account.getCustomer();
+                com.fintech.finpro.entity.SystemAccount sourceSystemAccount;
+
+                // Determine Source System Account (for balance check)
+                if (customer.getInvestor() != null) {
+                        sourceSystemAccount = customer.getInvestor().getCapitalAccount();
+                } else {
+                        sourceSystemAccount = systemAccountService.getCoreCapitalAccount();
+                }
+
+                boolean canAutoApprove = sourceSystemAccount.getBalance().compareTo(amount) >= 0;
+
+                com.fintech.finpro.entity.PendingTransaction transaction = com.fintech.finpro.entity.PendingTransaction
+                                .builder()
+                                .transactionType("DEPOSIT")
+                                .amount(amount)
+                                .account(account)
+                                .customer(customer)
+                                .description(description)
+                                .createdByUserId(makerId)
+                                .isBulk(false)
+                                .build();
+
+                if (canAutoApprove) {
+                        // Execute immediately
+                        transactionService.depositToCustomer(
+                                        customer.getId(),
+                                        amount,
+                                        description,
+                                        makerId,
+                                        account);
+
+                        // Update physical bank account
+                        account.setBalance(account.getBalance().add(amount));
+                        bankAccountRepository.save(account);
+
+                        // Mark as Approved
+                        transaction.setStatus("APPROVED");
+                        transaction.setVerifiedAt(java.time.LocalDateTime.now());
+                        transaction.setVerifiedByUserId(null); // System verified
+                } else {
+                        // Create Pending
+                        transaction.setStatus("PENDING");
+                }
+
+                com.fintech.finpro.entity.PendingTransaction saved = pendingTransactionRepository.save(transaction);
+                return mapTransactionToDTO(saved);
+        }
+
+        /**
+         * Create withdrawal transaction (Maker)
+         */
+        @Transactional
+        public com.fintech.finpro.dto.PendingTransactionDTO createWithdrawal(Long accountId,
+                        java.math.BigDecimal amount,
+                        String description, Long makerId) {
+                CustomerBankAccount account = bankAccountRepository.findById(accountId)
+                                .orElseThrow(() -> new RuntimeException(
+                                                "Bank account not found with ID: " + accountId));
+
+                // Check sufficient balance
+                if (account.getBalance().compareTo(amount) < 0) {
+                        throw new RuntimeException("Insufficient balance in account");
+                }
+
+                com.fintech.finpro.entity.PendingTransaction transaction = com.fintech.finpro.entity.PendingTransaction
+                                .builder()
+                                .transactionType("WITHDRAWAL")
+                                .amount(amount)
+                                .account(account)
+                                .customer(account.getCustomer())
+                                .description(description)
+                                .createdByUserId(makerId)
+                                .status("PENDING")
+                                .isBulk(false)
+                                .build();
+
+                com.fintech.finpro.entity.PendingTransaction saved = pendingTransactionRepository.save(transaction);
+                return mapTransactionToDTO(saved);
+        }
+
+        /**
+         * Get pending transactions for an account
+         */
+        @Transactional(readOnly = true)
+        public List<com.fintech.finpro.dto.PendingTransactionDTO> getPendingTransactions(Long accountId) {
+                return pendingTransactionRepository.findAll().stream()
+                                .filter(t -> t.getAccount() != null && t.getAccount().getId().equals(accountId))
+                                .filter(t -> "PENDING".equals(t.getStatus()))
+                                .map(this::mapTransactionToDTO)
+                                .collect(Collectors.toList());
+        }
+
+        private com.fintech.finpro.dto.PendingTransactionDTO mapTransactionToDTO(
+                        com.fintech.finpro.entity.PendingTransaction transaction) {
+                return com.fintech.finpro.dto.PendingTransactionDTO.builder()
+                                .id(transaction.getId())
+                                .transactionType(transaction.getTransactionType())
+                                .amount(transaction.getAmount())
+                                .accountId(transaction.getAccount() != null ? transaction.getAccount().getId() : null)
+                                .customerId(transaction.getCustomer() != null ? transaction.getCustomer().getId()
+                                                : null)
+                                .description(transaction.getDescription())
+                                .createdByUserId(transaction.getCreatedByUserId())
+                                .verifiedByUserId(transaction.getVerifiedByUserId())
+                                .status(transaction.getStatus())
+                                .isBulk(transaction.getIsBulk())
+                                .rejectionReason(transaction.getRejectionReason())
+                                .verifiedAt(transaction.getVerifiedAt())
+                                .createdAt(transaction.getCreatedAt())
+                                .build();
+        }
 }

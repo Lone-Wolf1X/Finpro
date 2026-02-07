@@ -40,6 +40,9 @@ public class CustomerDTO {
     private Long guardianId;
     private String guardianName;
 
+    // Investor Link
+    private Long investorId;
+
     private String photoPath;
     private String signaturePath;
     private String guardianPhotoPath;

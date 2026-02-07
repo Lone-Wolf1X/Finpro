@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { customerApi, bankAccountApi, ipoApplicationApi } from '../../api/customerApi';
 import { Customer, BankAccount, IPOApplication, KycStatus } from '../../types';
-import { User, CreditCard, PieChart, ArrowLeft, Edit, FileSignature, Eye, History, Wallet } from 'lucide-react';
+import { User, CreditCard, PieChart, ArrowLeft, Edit, FileSignature, History, Wallet, Plus } from 'lucide-react';
+import CredentialsTab from './CredentialsTab';
+import AddBankAccountModal from './AddBankAccountModal';
+import EditableDetailsTab from './EditableDetailsTab';
 
 export default function CustomerProfile() {
     const { id } = useParams<{ id: string }>();
@@ -10,10 +13,16 @@ export default function CustomerProfile() {
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
     const [ipoApplications, setIpoApplications] = useState<IPOApplication[]>([]);
-    const [activeTab, setActiveTab] = useState<'details' | 'bank' | 'ipo'>('details');
+    const [activeTab, setActiveTab] = useState<'details' | 'bank' | 'credentials' | 'ipo'>('details');
     const [ipoChildTab, setIpoChildTab] = useState<'portfolio' | 'applications'>('applications');
-    const [showSignature, setShowSignature] = useState(false);
+    const [showAddBankModal, setShowAddBankModal] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [isEditing, setIsEditing] = useState(false);
+    const [editedCustomer, setEditedCustomer] = useState<Customer | null>(null);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [uploadingSignature, setUploadingSignature] = useState(false);
+    const [uploadingGuardianPhoto, setUploadingGuardianPhoto] = useState(false);
+    const [uploadingGuardianSignature, setUploadingGuardianSignature] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -48,6 +57,116 @@ export default function CustomerProfile() {
             DRAFT: 'bg-gray-100 text-gray-800'
         };
         return colors[status] || 'bg-gray-100 text-gray-800';
+    };
+
+    const handleEditToggle = () => {
+        if (!isEditing) {
+            setEditedCustomer(customer);
+        }
+        setIsEditing(!isEditing);
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditing(false);
+        setEditedCustomer(null);
+    };
+
+    const handleSaveEdit = async () => {
+        if (!editedCustomer) return;
+        try {
+            // Use fetch directly for PUT request with Customer type
+            const response = await fetch(`http://127.0.0.1:8080/api/customers/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                },
+                body: JSON.stringify(editedCustomer),
+            });
+
+            if (!response.ok) throw new Error('Update failed');
+
+            const updated = await response.json();
+            setCustomer(updated);
+            setIsEditing(false);
+            setEditedCustomer(null);
+        } catch (error) {
+            console.error('Failed to update customer:', error);
+            alert('Failed to update customer details');
+        }
+    };
+
+    const handleFileUpload = async (file: File, type: 'photo' | 'signature' | 'guardian-photo' | 'guardian-signature') => {
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Only image files are allowed');
+            return;
+        }
+
+        // Validate file size (2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('File size must not exceed 2MB');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const endpoint = type === 'photo' ? 'upload-photo' :
+                type === 'signature' ? 'upload-signature' :
+                    type === 'guardian-photo' ? 'upload-guardian-photo' :
+                        'upload-guardian-signature';
+
+            const setUploading = type === 'photo' ? setUploadingPhoto :
+                type === 'signature' ? setUploadingSignature :
+                    type === 'guardian-photo' ? setUploadingGuardianPhoto :
+                        setUploadingGuardianSignature;
+
+            setUploading(true);
+
+            const response = await fetch(`http://127.0.0.1:8080/api/customers/${id}/${endpoint}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) throw new Error('Upload failed');
+
+            const data = await response.json();
+            const pathKey = type === 'photo' ? 'photoPath' :
+                type === 'signature' ? 'signaturePath' :
+                    type === 'guardian-photo' ? 'guardianPhotoPath' :
+                        'guardianSignaturePath';
+
+            // Update customer state
+            if (customer) {
+                const updated = { ...customer, [pathKey]: data[pathKey] };
+                setCustomer(updated);
+                if (editedCustomer) {
+                    setEditedCustomer(updated);
+                }
+            }
+        } catch (error) {
+            console.error('Upload failed:', error);
+            alert('Failed to upload file');
+        } finally {
+            const setUploading = type === 'photo' ? setUploadingPhoto :
+                type === 'signature' ? setUploadingSignature :
+                    type === 'guardian-photo' ? setUploadingGuardianPhoto :
+                        setUploadingGuardianSignature;
+            setUploading(false);
+        }
+    };
+
+    const handleFieldChange = (field: keyof Customer, value: any) => {
+        if (editedCustomer) {
+            setEditedCustomer({ ...editedCustomer, [field]: value });
+        }
     };
 
     if (loading) return <div className="p-8 text-center text-blue-600 animate-pulse font-bold">Initializing Profile Engine...</div>;
@@ -101,6 +220,7 @@ export default function CustomerProfile() {
                 {[
                     { id: 'details', label: 'General Details', icon: User },
                     { id: 'bank', label: 'Bank & Ledger', icon: CreditCard },
+                    { id: 'credentials', label: 'Credentials', icon: FileSignature },
                     { id: 'ipo', label: 'IPO & Portfolio', icon: PieChart },
                 ].map((tab) => (
                     <button
@@ -117,226 +237,217 @@ export default function CustomerProfile() {
                 ))}
             </div>
 
+
             {/* Content Area */}
             <div className="space-y-6">
                 {activeTab === 'details' && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="lg:col-span-2 space-y-6">
-                            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                                <h3 className="text-xl font-bold mb-6 text-gray-800 border-b pb-4 flex items-center gap-2">
-                                    <User size={20} className="text-blue-500" /> Personal Identity
-                                </h3>
-                                <div className="grid grid-cols-2 gap-y-6 gap-x-12">
-                                    {[
-                                        { label: 'Gender', value: customer.gender },
-                                        { label: 'Date of Birth', value: customer.dateOfBirth },
-                                        { label: 'Citizenship Number', value: customer.citizenshipNumber || 'N/A' },
-                                        { label: 'NID Number', value: customer.nidNumber || 'N/A' },
-                                        { label: 'Contact Number', value: customer.contactNumber || 'N/A' },
-                                        { label: 'Address', value: customer.address || 'N/A' },
-                                    ].map((item) => (
-                                        <div key={item.label}>
-                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">{item.label}</p>
-                                            <p className="text-base font-semibold text-gray-700">{item.value}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {customer.customerType === 'MINOR' && (
-                                <div className="bg-orange-50 p-8 rounded-2xl border border-orange-100">
-                                    <h3 className="text-xl font-bold mb-4 text-orange-800 flex items-center gap-2">
-                                        Guardian Information
-                                    </h3>
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600">
-                                            <User size={24} />
-                                        </div>
-                                        <div>
-                                            <p className="text-sm font-bold text-orange-600 uppercase tracking-wider">Guardian</p>
-                                            <p className="text-lg font-extrabold text-orange-900 leading-tight">
-                                                {customer.guardianName} ({customer.guardianRelation})
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="space-y-6">
-                            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                                <h3 className="text-xl font-bold mb-6 text-gray-800 border-b pb-4">Documents</h3>
-                                <div className="space-y-6">
-                                    <div>
-                                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Signature</p>
-                                        <div
-                                            className="h-32 w-full bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 transition-all overflow-hidden relative"
-                                            onClick={() => setShowSignature(!showSignature)}
-                                        >
-                                            {showSignature ? (
-                                                customer.signaturePath ? (
-                                                    <img src={`/uploads/${customer.signaturePath}`} alt="Signature" className="h-full w-full object-contain p-2" />
-                                                ) : (
-                                                    <div className="text-center">
-                                                        <FileSignature size={28} className="text-gray-300 mx-auto" />
-                                                        <p className="text-xs font-bold text-gray-400 mt-2 italic">Not Uploaded</p>
-                                                    </div>
-                                                )
-                                            ) : (
-                                                <div className="flex flex-col items-center gap-2">
-                                                    <Eye size={24} className="text-blue-500" />
-                                                    <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Show Signature</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                    {customer.customerType === 'MINOR' && (
-                                        <div>
-                                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Guardian Photo</p>
-                                            <div className="h-44 w-full bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden flex items-center justify-center">
-                                                {customer.guardianPhotoPath ? (
-                                                    <img src={`/uploads/${customer.guardianPhotoPath}`} alt="Guardian" className="h-full w-full object-cover" />
-                                                ) : (
-                                                    <User size={48} className="text-gray-200" />
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <EditableDetailsTab
+                        customer={customer}
+                        isEditing={isEditing}
+                        editedCustomer={editedCustomer}
+                        onEdit={handleEditToggle}
+                        onSave={handleSaveEdit}
+                        onCancel={handleCancelEdit}
+                        onChange={handleFieldChange}
+                        onFileUpload={handleFileUpload}
+                        uploadingPhoto={uploadingPhoto}
+                        uploadingSignature={uploadingSignature}
+                        uploadingGuardianPhoto={uploadingGuardianPhoto}
+                        uploadingGuardianSignature={uploadingGuardianSignature}
+                    />
                 )}
 
                 {activeTab === 'bank' && (
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                        <table className="w-full text-left">
-                            <thead className="bg-gray-50 border-b border-gray-100">
-                                <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                    <th className="px-8 py-4">Bank Name & Branch</th>
-                                    <th className="px-8 py-4">Account Details</th>
-                                    <th className="px-8 py-4 text-center">Type</th>
-                                    <th className="px-8 py-4 text-center">Balance</th>
-                                    <th className="px-8 py-4 text-center">Status</th>
-                                    <th className="px-8 py-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                                {bankAccounts.map(bank => (
-                                    <tr key={bank.id} className="hover:bg-gray-50/50 transition-all group">
-                                        <td className="px-8 py-5">
-                                            <div className="flex items-center gap-3">
-                                                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                                                    <CreditCard size={16} />
-                                                </div>
-                                                <div>
-                                                    <p className="font-extrabold text-gray-800 text-sm leading-tight">{bank.bankName}</p>
-                                                    <p className="text-[10px] font-bold text-gray-500 mt-1 uppercase tracking-tighter">{bank.branchName}</p>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-8 py-5">
-                                            <p className="font-mono text-sm text-gray-700 font-bold tracking-widest">{bank.accountNumber}</p>
-                                            {bank.isPrimary && <span className="text-[10px] text-blue-600 font-black uppercase tracking-tighter">Primary Account</span>}
-                                        </td>
-                                        <td className="px-8 py-5 text-center">
-                                            <span className="text-xs font-bold text-gray-600 uppercase">{bank.accountType.replace('_', ' ')}</span>
-                                        </td>
-                                        <td className="px-8 py-5 text-center font-mono font-bold text-blue-700">
-                                            रू 0.00
-                                        </td>
-                                        <td className="px-8 py-5 text-center">
-                                            <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest ${bank.status === 'ACTIVE' ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-600'}`}>
-                                                {bank.status}
-                                            </span>
-                                        </td>
-                                        <td className="px-8 py-5 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <button className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-all title='Statement'"><History size={16} /></button>
-                                                <button className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all shadow-sm">Deposit</button>
-                                                <button className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-all shadow-sm">Withdraw</button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {bankAccounts.length === 0 && (
-                                    <tr>
-                                        <td colSpan={6} className="px-8 py-12 text-center text-gray-400 font-bold italic">No bank accounts linked to this profile.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
 
-                {activeTab === 'ipo' && (
-                    <div className="space-y-6">
-                        <div className="flex bg-gray-100 p-1 rounded-xl w-fit font-bold">
-                            {[
-                                { id: 'applications', label: 'Applications & ASBA', icon: History },
-                                { id: 'portfolio', label: 'My Portfolio', icon: Wallet },
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setIpoChildTab(tab.id as any)}
-                                    className={`flex items-center gap-2 px-6 py-2 rounded-lg text-xs transition-all ${ipoChildTab === tab.id
-                                        ? 'bg-white text-blue-600 shadow-sm'
-                                        : 'text-gray-500 hover:text-gray-700'
-                                        }`}
-                                >
-                                    <tab.icon size={14} />
-                                    {tab.label}
-                                </button>
-                            ))}
+                    <div className="space-y-4">
+                        {/* Header with Add Button */}
+                        <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900">Bank Accounts</h3>
+                                <p className="text-sm text-gray-500 mt-1">Manage customer bank accounts and transactions</p>
+                            </div>
+                            <button
+                                onClick={() => setShowAddBankModal(true)}
+                                className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all shadow-md"
+                            >
+                                <Plus size={18} />
+                                Add Bank Account
+                            </button>
                         </div>
 
-                        {ipoChildTab === 'applications' ? (
-                            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                                <table className="w-full text-left">
-                                    <thead className="bg-gray-50 border-b border-gray-100">
-                                        <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                                            <th className="px-8 py-4">Company Details</th>
-                                            <th className="px-8 py-4 text-center">Applied Qty</th>
-                                            <th className="px-8 py-4 text-center">Amount</th>
-                                            <th className="px-8 py-4 text-center">Status</th>
-                                            <th className="px-8 py-4 text-right">Actions</th>
+                        {/* Bank Accounts Table */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead className="bg-gray-50 border-b border-gray-100">
+                                    <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                        <th className="px-8 py-4">Bank Name & Branch</th>
+                                        <th className="px-8 py-4">Account Details</th>
+                                        <th className="px-8 py-4 text-center">Type</th>
+                                        <th className="px-8 py-4 text-center">Balance</th>
+                                        <th className="px-8 py-4 text-center">Status</th>
+                                        <th className="px-8 py-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50">
+                                    {bankAccounts.map(bank => (
+                                        <tr key={bank.id} className="hover:bg-gray-50/50 transition-all group">
+                                            <td className="px-8 py-5">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                                                        <CreditCard size={16} />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-extrabold text-gray-800 text-sm leading-tight">{bank.bankName}</p>
+                                                        <p className="text-[10px] font-bold text-gray-500 mt-1 uppercase tracking-tighter">{bank.branchName}</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-8 py-5">
+                                                <p className="font-mono text-sm text-gray-700 font-bold tracking-widest">{bank.accountNumber}</p>
+                                                {bank.isPrimary && <span className="text-[10px] text-blue-600 font-black uppercase tracking-tighter">Primary Account</span>}
+                                            </td>
+                                            <td className="px-8 py-5 text-center">
+                                                <span className="text-xs font-bold text-gray-600 uppercase">{bank.accountType.replace('_', ' ')}</span>
+                                            </td>
+                                            <td className="px-8 py-5 text-center font-mono font-bold text-blue-700">
+                                                रू {bank.balance?.toLocaleString() || '0.00'}
+                                            </td>
+                                            <td className="px-8 py-5 text-center">
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest ${bank.status === 'ACTIVE' ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-600'}`}>
+                                                    {bank.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-8 py-5 text-right">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <button
+                                                        onClick={() => navigate(`/banking/accounts/${bank.id}`)}
+                                                        className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-all"
+                                                        title="Statement"
+                                                    >
+                                                        <History size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => navigate(`/banking/accounts/${bank.id}`)}
+                                                        className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all shadow-sm"
+                                                    >
+                                                        Deposit
+                                                    </button>
+                                                    <button
+                                                        onClick={() => navigate(`/banking/accounts/${bank.id}`)}
+                                                        className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-bold hover:bg-red-700 transition-all shadow-sm"
+                                                    >
+                                                        Withdraw
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-50">
-                                        {ipoApplications.map(app => (
-                                            <tr key={app.id} className="hover:bg-gray-50/50 transition-all group">
-                                                <td className="px-8 py-5">
-                                                    <p className="font-extrabold text-gray-800 text-sm leading-tight">{app.ipoCompanyName}</p>
-                                                    <p className="text-[10px] font-bold text-blue-500 mt-1 tracking-widest">{new Date(app.appliedAt).toLocaleDateString()} | {app.applicationNumber}</p>
-                                                </td>
-                                                <td className="px-8 py-5 text-center font-mono font-bold text-gray-600">{app.quantity}</td>
-                                                <td className="px-8 py-5 text-center font-mono font-bold text-gray-700">रू {app.amount.toLocaleString()}</td>
-                                                <td className="px-8 py-5 text-center">
-                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest ${app.applicationStatus === 'APPROVED' ? 'bg-green-50 text-green-700' :
-                                                        app.applicationStatus === 'REJECTED' ? 'bg-red-50 text-red-700' :
-                                                            'bg-orange-50 text-orange-700'
-                                                        }`}>
-                                                        {app.applicationStatus}
-                                                    </span>
-                                                </td>
-                                                <td className="px-8 py-5 text-right">
-                                                    <button className="text-blue-600 font-black text-[10px] uppercase hover:underline">Verify Result</button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <p className="text-gray-500 font-bold italic col-span-3 text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                                    No shares allotted yet. Apply for upcoming IPOs!
-                                </p>
-                            </div>
-                        )}
+                                    ))}
+                                    {bankAccounts.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} className="px-8 py-12 text-center text-gray-400 font-bold italic">No bank accounts linked to this profile.</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                )}
-            </div>
-        </div>
+                )
+                }
+
+                {/* Credentials Tab */}
+                {
+                    activeTab === 'credentials' && (
+                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                            <CredentialsTab customerId={parseInt(id!)} />
+                        </div>
+                    )
+                }
+
+                {/* IPO Tab */}
+                {
+                    activeTab === 'ipo' && (
+                        <div className="space-y-6">
+                            <div className="flex bg-gray-100 p-1 rounded-xl w-fit font-bold">
+                                {[
+                                    { id: 'applications', label: 'Applications & ASBA', icon: History },
+                                    { id: 'portfolio', label: 'My Portfolio', icon: Wallet },
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setIpoChildTab(tab.id as any)}
+                                        className={`flex items-center gap-2 px-6 py-2 rounded-lg text-xs transition-all ${ipoChildTab === tab.id
+                                            ? 'bg-white text-blue-600 shadow-sm'
+                                            : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                    >
+                                        <tab.icon size={14} />
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {ipoChildTab === 'applications' ? (
+                                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                    <table className="w-full text-left">
+                                        <thead className="bg-gray-50 border-b border-gray-100">
+                                            <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                <th className="px-8 py-4">Company Details</th>
+                                                <th className="px-8 py-4 text-center">Applied Qty</th>
+                                                <th className="px-8 py-4 text-center">Amount</th>
+                                                <th className="px-8 py-4 text-center">Status</th>
+                                                <th className="px-8 py-4 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-50">
+                                            {ipoApplications.map(app => (
+                                                <tr key={app.id} className="hover:bg-gray-50/50 transition-all group">
+                                                    <td className="px-8 py-5">
+                                                        <p className="font-extrabold text-gray-800 text-sm leading-tight">{app.ipoCompanyName}</p>
+                                                        <p className="text-[10px] font-bold text-blue-500 mt-1 tracking-widest">{new Date(app.appliedAt).toLocaleDateString()} | {app.applicationNumber}</p>
+                                                    </td>
+                                                    <td className="px-8 py-5 text-center font-mono font-bold text-gray-600">{app.quantity}</td>
+                                                    <td className="px-8 py-5 text-center font-mono font-bold text-gray-700">रू {app.amount.toLocaleString()}</td>
+                                                    <td className="px-8 py-5 text-center">
+                                                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest ${app.applicationStatus === 'APPROVED' ? 'bg-green-50 text-green-700' :
+                                                            app.applicationStatus === 'REJECTED' ? 'bg-red-50 text-red-700' :
+                                                                'bg-orange-50 text-orange-700'
+                                                            }`}>
+                                                            {app.applicationStatus}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-8 py-5 text-right">
+                                                        <button className="text-blue-600 font-black text-[10px] uppercase hover:underline">Verify Result</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <p className="text-gray-500 font-bold italic col-span-3 text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                                        No shares allotted yet. Apply for upcoming IPOs!
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )
+                }
+            </div >
+
+            {/* Add Bank Account Modal */}
+            {
+                showAddBankModal && (
+                    <AddBankAccountModal
+                        customerId={parseInt(id!)}
+                        onClose={() => setShowAddBankModal(false)}
+                        onSuccess={() => {
+                            loadData(parseInt(id!));
+                            setShowAddBankModal(false);
+                        }}
+                    />
+                )
+            }
+        </div >
     );
 }

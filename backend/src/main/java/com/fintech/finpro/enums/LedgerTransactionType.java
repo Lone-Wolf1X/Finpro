@@ -6,5 +6,6 @@ public enum LedgerTransactionType {
     FEE,
     ALLOTMENT,
     SETTLEMENT,
-    REVERSAL
+    REVERSAL,
+    TRANSFER
 }

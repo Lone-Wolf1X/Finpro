@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../api/apiClient';
+import { ledgerApi } from '../../api/customerApi';
 import { LedgerAccount } from '../../types';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { Plus, List, Wallet, Building2, TrendingDown, TrendingUp, Filter } from 'lucide-react';
 
 export default function SystemAccountManagement() {
+    const navigate = useNavigate();
     const [accounts, setAccounts] = useState<LedgerAccount[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
@@ -26,7 +28,7 @@ export default function SystemAccountManagement() {
 
     const loadAccounts = async () => {
         try {
-            const response = await api.get('/api/ledger/system-accounts');
+            const response = await ledgerApi.getSystemAccounts();
             setAccounts(response.data);
         } catch (error) {
             toast.error('Failed to load system accounts');
@@ -38,10 +40,7 @@ export default function SystemAccountManagement() {
     const handleCreateAccount = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            await api.post('/api/ledger/system-accounts', {
-                name: newAccount.name,
-                type: newAccount.type
-            });
+            await ledgerApi.createSystemAccount(newAccount.name, newAccount.type);
             toast.success('System account created successfully');
             setIsAdding(false);
             setNewAccount({ name: '', type: 'EXPENSE' });
@@ -152,10 +151,11 @@ export default function SystemAccountManagement() {
                                 <div key={i} className="h-48 bg-white rounded-3xl border border-gray-100 animate-pulse"></div>
                             ))
                         ) : accounts.length > 0 ? (
-                            accounts.map((account) => (
+                            accounts.map((account: LedgerAccount) => (
                                 <div
                                     key={account.id}
-                                    className="group bg-white rounded-3xl p-6 border border-gray-100 shadow-xl shadow-gray-200/20 hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden"
+                                    onClick={() => navigate(`/admin/system-accounts/${account.id}`)}
+                                    className="group bg-white rounded-3xl p-6 border border-gray-100 shadow-xl shadow-gray-200/20 hover:shadow-blue-500/10 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden cursor-pointer"
                                 >
                                     {/* Type Ribbon */}
                                     <div className={`absolute top-0 right-0 px-4 py-1.5 rounded-bl-2xl text-[10px] font-black uppercase tracking-widest text-white ${account.accountType === 'EXPENSE' ? 'bg-red-500' :

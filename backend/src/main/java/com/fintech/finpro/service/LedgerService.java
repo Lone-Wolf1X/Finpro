@@ -45,7 +45,8 @@ public class LedgerService {
             String particulars,
             LedgerTransactionType type,
             String referenceId,
-            Long makerId) {
+            Long makerId,
+            com.fintech.finpro.entity.CustomerBankAccount bankAccount) {
 
         if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new RuntimeException("Transaction amount must be positive");
@@ -68,12 +69,29 @@ public class LedgerService {
                 .referenceId(referenceId)
                 .makerId(makerId)
                 .status("COMPLETED")
+                .customerBankAccount(bankAccount)
                 .build();
 
         // Assign Transaction ID
         transaction.setReferenceId(generateTransactionId());
 
         return transactionRepository.save(java.util.Objects.requireNonNull(transaction));
+    }
+
+    /**
+     * Backward compatibility or for transactions not linked to a specific bank
+     * account
+     */
+    @Transactional
+    public LedgerTransaction recordTransaction(
+            LedgerAccount debitAcc,
+            LedgerAccount creditAcc,
+            BigDecimal amount,
+            String particulars,
+            LedgerTransactionType type,
+            String referenceId,
+            Long makerId) {
+        return recordTransaction(debitAcc, creditAcc, amount, particulars, type, referenceId, makerId, null);
     }
 
     private synchronized String generateTransactionId() {
@@ -94,6 +112,7 @@ public class LedgerService {
         createSystemAccount("CASBA Charges", LedgerAccountType.FEE_INCOME);
         createSystemAccount("Tax Payable (CGT)", LedgerAccountType.TAX_PAYABLE);
         createSystemAccount("Broker Commission Payable", LedgerAccountType.TAX_PAYABLE);
+        createSystemAccount("Office Expenses", LedgerAccountType.EXPENSE);
     }
 
     private void createSystemAccount(String name, LedgerAccountType type) {
@@ -137,5 +156,61 @@ public class LedgerService {
                 .balance(java.math.BigDecimal.ZERO)
                 .status("ACTIVE")
                 .build()));
+    }
+
+    /**
+     * Create ledger entry for capital deposit
+     */
+    @Transactional
+    public LedgerTransaction createCapitalDepositEntry(
+            com.fintech.finpro.entity.SystemAccount targetAccount,
+            BigDecimal amount,
+            String description,
+            Long checkerId) {
+
+        // Get or create ledger accounts
+        LedgerAccount cashAccount = getOrCreateAccount("Office Cash", LedgerAccountType.OFFICE, null);
+        LedgerAccount capitalAccount = getOrCreateAccount(
+                targetAccount.getAccountName(),
+                LedgerAccountType.CORE_CAPITAL,
+                targetAccount.getOwnerId());
+
+        // Record transaction: Debit Cash, Credit Capital
+        return recordTransaction(
+                cashAccount,
+                capitalAccount,
+                amount,
+                description != null ? description : "Capital deposit",
+                LedgerTransactionType.DEPOSIT,
+                null,
+                checkerId);
+    }
+
+    /**
+     * Create ledger entry for capital withdrawal
+     */
+    @Transactional
+    public LedgerTransaction createCapitalWithdrawalEntry(
+            com.fintech.finpro.entity.SystemAccount targetAccount,
+            BigDecimal amount,
+            String description,
+            Long checkerId) {
+
+        // Get or create ledger accounts
+        LedgerAccount cashAccount = getOrCreateAccount("Office Cash", LedgerAccountType.OFFICE, null);
+        LedgerAccount capitalAccount = getOrCreateAccount(
+                targetAccount.getAccountName(),
+                LedgerAccountType.CORE_CAPITAL,
+                targetAccount.getOwnerId());
+
+        // Record transaction: Debit Capital, Credit Cash
+        return recordTransaction(
+                capitalAccount,
+                cashAccount,
+                amount,
+                description != null ? description : "Capital withdrawal",
+                LedgerTransactionType.WITHDRAWAL,
+                null,
+                checkerId);
     }
 }

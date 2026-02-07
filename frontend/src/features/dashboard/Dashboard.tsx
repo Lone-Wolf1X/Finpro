@@ -89,30 +89,36 @@ const Dashboard = () => {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {statCards.map((stat, index) => (
-                    <div key={index} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 group">
-                        <div className="flex items-start justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-500">{stat.title}</p>
-                                <h3 className="text-3xl font-bold text-gray-900 mt-2 tracking-tight">
-                                    {loading ? (
-                                        <div className="h-9 w-24 bg-gray-100 rounded animate-pulse"></div>
-                                    ) : (
-                                        stat.value
-                                    )}
-                                </h3>
+                {statCards
+                    .filter(stat => {
+                        if (stat.title === 'Total Users') return user?.role === 'SUPERADMIN' || user?.role === 'ADMIN';
+                        if (stat.title === 'Pending Approvals') return user?.role !== 'MAKER';
+                        return true;
+                    })
+                    .map((stat, index) => (
+                        <div key={index} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300 group">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-500">{stat.title}</p>
+                                    <h3 className="text-3xl font-bold text-gray-900 mt-2 tracking-tight">
+                                        {loading ? (
+                                            <div className="h-9 w-24 bg-gray-100 rounded animate-pulse"></div>
+                                        ) : (
+                                            stat.value
+                                        )}
+                                    </h3>
+                                </div>
+                                <div className={`p-3 rounded-xl ${stat.bgLight} group-hover:scale-110 transition-transform duration-300`}>
+                                    <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                                </div>
                             </div>
-                            <div className={`p-3 rounded-xl ${stat.bgLight} group-hover:scale-110 transition-transform duration-300`}>
-                                <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                            <div className="mt-4 flex items-center text-sm">
+                                <span className={`font-medium ${stat.trend === 'Requires Action' ? 'text-amber-600' : 'text-green-600'}`}>
+                                    {stat.trend}
+                                </span>
                             </div>
                         </div>
-                        <div className="mt-4 flex items-center text-sm">
-                            <span className={`font-medium ${stat.trend === 'Requires Action' ? 'text-amber-600' : 'text-green-600'}`}>
-                                {stat.trend}
-                            </span>
-                        </div>
-                    </div>
-                ))}
+                    ))}
             </div>
 
             {/* Content Grid */}

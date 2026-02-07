@@ -4,6 +4,8 @@ import com.fintech.finpro.enums.AccountType;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "customer_bank_accounts")
 @Getter
@@ -41,6 +43,14 @@ public class CustomerBankAccount extends BaseEntity {
     @Column(name = "is_primary")
     @Builder.Default
     private Boolean isPrimary = false;
+
+    @Column(name = "balance", precision = 15, scale = 2, nullable = false)
+    @Builder.Default
+    private BigDecimal balance = BigDecimal.ZERO;
+
+    @Column(name = "held_balance", precision = 15, scale = 2, nullable = false)
+    @Builder.Default
+    private BigDecimal heldBalance = BigDecimal.ZERO;
 
     @Column(length = 20)
     @Builder.Default

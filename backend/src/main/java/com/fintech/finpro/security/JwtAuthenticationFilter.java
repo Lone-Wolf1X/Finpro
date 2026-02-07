@@ -33,6 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String userEmail;
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            logger.debug("No Bearer token found in request to " + request.getRequestURI());
             filterChain.doFilter(request, response);
             return;
         }
@@ -40,6 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             jwt = authHeader.substring(7);
             userEmail = jwtService.extractUsername(jwt);
+            logger.debug("Extracted user email: " + userEmail);
         } catch (Exception e) {
             logger.error("Could not extract user email from token", e);
             filterChain.doFilter(request, response);
@@ -57,6 +59,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authToken.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
+                logger.debug("Authentication successful for user: " + userEmail);
+            } else {
+                logger.debug("Token invalid for user: " + userEmail);
             }
         }
         filterChain.doFilter(request, response);
