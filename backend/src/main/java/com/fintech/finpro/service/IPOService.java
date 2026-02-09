@@ -140,12 +140,29 @@ public class IPOService {
     /**
      * Auto-close IPOs that have passed their close date
      */
+    /**
+     * Check and switch IPO status based on open/close dates
+     * Runs every minute
+     */
+    @org.springframework.scheduling.annotation.Scheduled(fixedRate = 60000)
     @Transactional
-    public void autoCloseExpiredIPOs() {
-        List<IPO> expiredIPOs = ipoRepository.findIPOsToClose();
-        for (IPO ipo : expiredIPOs) {
+    public void checkAndSwitchStatus() {
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. Switch UPCOMING -> OPEN
+        List<IPO> toOpen = ipoRepository.findIPOsToOpen();
+        for (IPO ipo : toOpen) {
+            ipo.setStatus(IPOStatus.OPEN);
+            ipoRepository.save(ipo);
+            // In a real app, we might send notifications here
+        }
+
+        // 2. Switch OPEN -> CLOSED
+        List<IPO> toClose = ipoRepository.findIPOsToClose();
+        for (IPO ipo : toClose) {
             ipo.setStatus(IPOStatus.CLOSED);
             ipoRepository.save(ipo);
+            // Trigger allotment logic or notification here if needed
         }
     }
 

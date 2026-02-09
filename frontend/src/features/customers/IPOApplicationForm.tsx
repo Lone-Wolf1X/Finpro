@@ -7,9 +7,10 @@ export default function IPOApplicationForm() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const preselectedIpoId = searchParams.get('ipoId');
+    const preselectedCustomerId = searchParams.get('customerId');
 
     const [formData, setFormData] = useState<CreateIPOApplicationRequest>({
-        customerId: 0,
+        customerId: Number(preselectedCustomerId) || 0,
         ipoId: Number(preselectedIpoId) || 0,
         bankAccountId: 0,
         quantity: 0

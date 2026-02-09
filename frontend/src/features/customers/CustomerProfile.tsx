@@ -1,8 +1,9 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { customerApi, bankAccountApi, ipoApplicationApi } from '../../api/customerApi';
-import { Customer, BankAccount, IPOApplication, KycStatus } from '../../types';
-import { User, CreditCard, PieChart, ArrowLeft, Edit, FileSignature, History, Wallet, Plus } from 'lucide-react';
+import { customerApi, bankAccountApi, ipoApplicationApi, ipoApi } from '../../api/customerApi';
+import { Customer, BankAccount, IPOApplication, KycStatus, IPO } from '../../types';
+import { User, CreditCard, PieChart, ArrowLeft, Edit, FileSignature, History, Wallet, Plus, TrendingUp } from 'lucide-react';
 import CredentialsTab from './CredentialsTab';
 import AddBankAccountModal from './AddBankAccountModal';
 import EditableDetailsTab from './EditableDetailsTab';
@@ -13,8 +14,9 @@ export default function CustomerProfile() {
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
     const [ipoApplications, setIpoApplications] = useState<IPOApplication[]>([]);
+    const [activeIpos, setActiveIpos] = useState<IPO[]>([]);
     const [activeTab, setActiveTab] = useState<'details' | 'bank' | 'credentials' | 'ipo'>('details');
-    const [ipoChildTab, setIpoChildTab] = useState<'portfolio' | 'applications'>('applications');
+    const [ipoChildTab, setIpoChildTab] = useState<'portfolio' | 'applications' | 'open_ipos'>('applications');
     const [showAddBankModal, setShowAddBankModal] = useState(false);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
@@ -33,14 +35,16 @@ export default function CustomerProfile() {
     const loadData = async (customerId: number) => {
         try {
             setLoading(true);
-            const [custRes, bankRes, ipoRes] = await Promise.all([
+            const [custRes, bankRes, ipoRes, activeIpoRes] = await Promise.all([
                 customerApi.getById(customerId),
                 bankAccountApi.getByCustomerId(customerId),
-                ipoApplicationApi.getByCustomerId(customerId)
+                ipoApplicationApi.getByCustomerId(customerId),
+                ipoApi.getActive()
             ]);
             setCustomer(custRes.data);
             setBankAccounts(bankRes.data);
             setIpoApplications(ipoRes.data);
+            setActiveIpos(activeIpoRes.data);
         } catch (error) {
             console.error('Failed to load profile data:', error);
         } finally {
@@ -369,6 +373,7 @@ export default function CustomerProfile() {
                         <div className="space-y-6">
                             <div className="flex bg-gray-100 p-1 rounded-xl w-fit font-bold">
                                 {[
+                                    { id: 'open_ipos', label: 'Open IPOs', icon: TrendingUp },
                                     { id: 'applications', label: 'Applications & ASBA', icon: History },
                                     { id: 'portfolio', label: 'My Portfolio', icon: Wallet },
                                 ].map((tab) => (
@@ -386,7 +391,59 @@ export default function CustomerProfile() {
                                 ))}
                             </div>
 
-                            {ipoChildTab === 'applications' ? (
+                            {/* Open IPOs Section */}
+                            {ipoChildTab === 'open_ipos' && (
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {activeIpos.map(ipo => (
+                                            <div key={ipo.id} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div>
+                                                        <span className={`px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide ${ipo.status === 'OPEN' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-600'}`}>
+                                                            {ipo.status}
+                                                        </span>
+                                                        <h3 className="text-xl font-bold mt-2">{ipo.companyName}</h3>
+                                                        <p className="text-gray-500 text-sm font-medium">{ipo.symbol}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-2xl font-bold text-gray-800">रू {ipo.pricePerShare}</p>
+                                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Per Share</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4 text-sm mb-6 bg-gray-50 p-4 rounded-xl">
+                                                    <div>
+                                                        <p className="text-gray-500 text-xs uppercase tracking-wide font-bold">Issue Size</p>
+                                                        <p className="font-semibold">{ipo.issueSize.toLocaleString()} Units</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-gray-500 text-xs uppercase tracking-wide font-bold">Min Quantity</p>
+                                                        <p className="font-semibold">{ipo.minQuantity} Units</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-gray-500 text-xs uppercase tracking-wide font-bold">Closing Date</p>
+                                                        <p className="font-semibold text-red-500">{new Date(ipo.closeDate).toLocaleDateString()}</p>
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => navigate(`/ipo-applications/new?customerId=${id}&ipoId=${ipo.id}`)}
+                                                    className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-blue-100 shadow-lg"
+                                                >
+                                                    Apply Now
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {activeIpos.length === 0 && (
+                                        <p className="text-center text-gray-500 font-medium py-12 bg-white rounded-2xl border border-dashed border-gray-200">
+                                            No active IPOs available at the moment.
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {ipoChildTab === 'applications' && (
                                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                     <table className="w-full text-left">
                                         <thead className="bg-gray-50 border-b border-gray-100">
@@ -420,10 +477,17 @@ export default function CustomerProfile() {
                                                     </td>
                                                 </tr>
                                             ))}
+                                            {ipoApplications.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={5} className="px-8 py-12 text-center text-gray-400 font-bold italic">No applications found.</td>
+                                                </tr>
+                                            )}
                                         </tbody>
                                     </table>
                                 </div>
-                            ) : (
+                            )}
+
+                            {ipoChildTab === 'portfolio' && (
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <p className="text-gray-500 font-bold italic col-span-3 text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
                                         No shares allotted yet. Apply for upcoming IPOs!
@@ -433,7 +497,7 @@ export default function CustomerProfile() {
                         </div>
                     )
                 }
-            </div >
+            </div>
 
             {/* Add Bank Account Modal */}
             {

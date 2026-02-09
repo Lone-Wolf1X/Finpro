@@ -9,6 +9,7 @@ export default function IPOForm() {
     const { id } = useParams();
     const isEdit = !!id;
 
+    // Separate state for date and time to handle them individually
     const [formData, setFormData] = useState({
         companyName: '',
         symbol: '',
@@ -17,7 +18,9 @@ export default function IPOForm() {
         minQuantity: '10',
         maxQuantity: '1000',
         openDate: '',
+        openTime: '',
         closeDate: '',
+        closeTime: '',
         description: '',
         status: 'UPCOMING'
     });
@@ -37,6 +40,19 @@ export default function IPOForm() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             const data = response.data;
+
+            // Helper to split ISO datetime into date and time
+            const splitDateTime = (isoString?: string) => {
+                if (!isoString) return { date: '', time: '' };
+                const dateObj = new Date(isoString);
+                const date = dateObj.toISOString().split('T')[0];
+                const time = dateObj.toTimeString().slice(0, 5); // HH:mm
+                return { date, time };
+            };
+
+            const open = splitDateTime(data.openDate);
+            const close = splitDateTime(data.closeDate);
+
             setFormData({
                 companyName: data.companyName,
                 symbol: data.symbol,
@@ -44,8 +60,10 @@ export default function IPOForm() {
                 issueSize: data.issueSize.toString(),
                 minQuantity: data.minQuantity.toString(),
                 maxQuantity: data.maxQuantity.toString(),
-                openDate: data.openDate ? data.openDate.slice(0, 16) : '',
-                closeDate: data.closeDate ? data.closeDate.slice(0, 16) : '',
+                openDate: open.date,
+                openTime: open.time,
+                closeDate: close.date,
+                closeTime: close.time,
                 description: data.description || '',
                 status: data.status
             });
@@ -59,12 +77,23 @@ export default function IPOForm() {
         try {
             setLoading(true);
             const token = localStorage.getItem('token');
+
+            // Combine date and time
+            const combineDateTime = (date: string, time: string) => {
+                return `${date}T${time}:00`;
+            };
+
             const payload = {
-                ...formData,
+                companyName: formData.companyName,
+                symbol: formData.symbol,
                 pricePerShare: parseFloat(formData.pricePerShare),
                 issueSize: parseInt(formData.issueSize),
                 minQuantity: parseInt(formData.minQuantity),
-                maxQuantity: parseInt(formData.maxQuantity)
+                maxQuantity: parseInt(formData.maxQuantity),
+                openDate: combineDateTime(formData.openDate, formData.openTime),
+                closeDate: combineDateTime(formData.closeDate, formData.closeTime),
+                description: formData.description,
+                status: formData.status
             };
 
             if (isEdit) {
@@ -87,7 +116,7 @@ export default function IPOForm() {
     };
 
     return (
-        <div className="p-8 max-w-4xl mx-auto">
+        <div className="p-8 max-w-6xl mx-auto">
             <div className="bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden">
                 <div className="bg-gray-900 p-10 text-white flex justify-between items-center">
                     <div>
@@ -103,8 +132,8 @@ export default function IPOForm() {
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Basic Info */}
+                <form onSubmit={handleSubmit} className="p-10 grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* Basic Info - Column 1 */}
                     <div className="space-y-6">
                         <h3 className="text-xs font-black text-blue-600 uppercase tracking-widest flex items-center gap-2">
                             <Building2 size={14} /> Entity Details
@@ -132,119 +161,142 @@ export default function IPOForm() {
                                     placeholder="e.g. NGIL"
                                 />
                             </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Offering Status</label>
+                                <select
+                                    value={formData.status}
+                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-black text-xs uppercase tracking-widest text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none"
+                                >
+                                    <option value="UPCOMING">Upcoming</option>
+                                    <option value="OPEN">Open</option>
+                                    <option value="CLOSED">Closed (Subs End)</option>
+                                    <option value="ALLOTTED">Allotted</option>
+                                    <option value="LISTED">Listed</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Financials */}
+                    {/* Financials - Column 2 */}
                     <div className="space-y-6">
                         <h3 className="text-xs font-black text-green-600 uppercase tracking-widest flex items-center gap-2">
                             <Tag size={14} /> Pricing & Size
                         </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Price (NPR)</label>
-                                <input
-                                    type="number"
-                                    required
-                                    step="0.01"
-                                    value={formData.pricePerShare}
-                                    onChange={(e) => setFormData({ ...formData, pricePerShare: e.target.value })}
-                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-mono font-black text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
-                                />
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Price (NPR)</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        step="0.01"
+                                        value={formData.pricePerShare}
+                                        onChange={(e) => setFormData({ ...formData, pricePerShare: e.target.value })}
+                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-mono font-black text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Issue Size</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        value={formData.issueSize}
+                                        onChange={(e) => setFormData({ ...formData, issueSize: e.target.value })}
+                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-mono font-black text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Issue Size (Shares)</label>
-                                <input
-                                    type="number"
-                                    required
-                                    value={formData.issueSize}
-                                    onChange={(e) => setFormData({ ...formData, issueSize: e.target.value })}
-                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-mono font-black text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
-                                />
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Min Units</label>
-                                <input
-                                    type="number"
-                                    required
-                                    value={formData.minQuantity}
-                                    onChange={(e) => setFormData({ ...formData, minQuantity: e.target.value })}
-                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Max Units</label>
-                                <input
-                                    type="number"
-                                    required
-                                    value={formData.maxQuantity}
-                                    onChange={(e) => setFormData({ ...formData, maxQuantity: e.target.value })}
-                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Min Units</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        value={formData.minQuantity}
+                                        onChange={(e) => setFormData({ ...formData, minQuantity: e.target.value })}
+                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Max Units</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        value={formData.maxQuantity}
+                                        onChange={(e) => setFormData({ ...formData, maxQuantity: e.target.value })}
+                                        className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Timeline */}
+                    {/* Timeline - Column 3 */}
                     <div className="space-y-6">
                         <h3 className="text-xs font-black text-orange-600 uppercase tracking-widest flex items-center gap-2">
-                            <Calendar size={14} /> Timeline
+                            <Calendar size={14} /> Critical Timeline
                         </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Open Date & Time</label>
-                                <input
-                                    type="datetime-local"
-                                    required
-                                    value={formData.openDate}
-                                    onChange={(e) => setFormData({ ...formData, openDate: e.target.value })}
-                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
-                                />
+                        <div className="space-y-4">
+                            {/* Open Date/Time */}
+                            <div className="bg-orange-50 p-4 rounded-2xl border border-orange-100">
+                                <label className="block text-[10px] font-black text-orange-400 uppercase tracking-widest mb-2">Opening Schedule</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                        type="date"
+                                        required
+                                        value={formData.openDate}
+                                        onChange={(e) => setFormData({ ...formData, openDate: e.target.value })}
+                                        className="w-full px-3 py-3 bg-white border border-gray-100 rounded-xl font-bold text-gray-700 focus:ring-2 focus:ring-orange-500/20 outline-none text-sm"
+                                    />
+                                    <input
+                                        type="time"
+                                        required
+                                        value={formData.openTime}
+                                        onChange={(e) => setFormData({ ...formData, openTime: e.target.value })}
+                                        className="w-full px-3 py-3 bg-white border border-gray-100 rounded-xl font-bold text-gray-700 focus:ring-2 focus:ring-orange-500/20 outline-none text-sm"
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Close Date & Time</label>
-                                <input
-                                    type="datetime-local"
-                                    required
-                                    value={formData.closeDate}
-                                    onChange={(e) => setFormData({ ...formData, closeDate: e.target.value })}
-                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-bold text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
-                                />
+
+                            {/* Close Date/Time */}
+                            <div className="bg-red-50 p-4 rounded-2xl border border-red-100">
+                                <label className="block text-[10px] font-black text-red-400 uppercase tracking-widest mb-2">Closing Schedule</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                        type="date"
+                                        required
+                                        value={formData.closeDate}
+                                        onChange={(e) => setFormData({ ...formData, closeDate: e.target.value })}
+                                        className="w-full px-3 py-3 bg-white border border-gray-100 rounded-xl font-bold text-gray-700 focus:ring-2 focus:ring-red-500/20 outline-none text-sm"
+                                    />
+                                    <input
+                                        type="time"
+                                        required
+                                        value={formData.closeTime}
+                                        onChange={(e) => setFormData({ ...formData, closeTime: e.target.value })}
+                                        className="w-full px-3 py-3 bg-white border border-gray-100 rounded-xl font-bold text-gray-700 focus:ring-2 focus:ring-red-500/20 outline-none text-sm"
+                                    />
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Offering Status</label>
-                            <select
-                                value={formData.status}
-                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-black text-xs uppercase tracking-widest text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none"
-                            >
-                                <option value="UPCOMING">Upcoming</option>
-                                <option value="OPEN">Open</option>
-                                <option value="CLOSED">Closed (Subs End)</option>
-                                <option value="ALLOTTED">Allotted</option>
-                                <option value="LISTED">Listed</option>
-                            </select>
                         </div>
                     </div>
 
-                    {/* Description */}
-                    <div className="space-y-6">
+                    {/* Description - Full Width */}
+                    <div className="md:col-span-3 space-y-6">
                         <h3 className="text-xs font-black text-purple-600 uppercase tracking-widest flex items-center gap-2">
-                            Description
+                            Description & Notes
                         </h3>
                         <textarea
-                            rows={6}
+                            rows={4}
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-medium text-gray-600 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
-                            placeholder="Market insights, company background, or risk factors..."
+                            placeholder="Market insights, company background, risk factors, or internal notes..."
                         />
                     </div>
 
-                    <div className="md:col-span-2 flex gap-4 pt-6 border-t border-gray-50">
+                    <div className="md:col-span-3 flex gap-4 pt-6 border-t border-gray-50">
                         <button
                             type="button"
                             onClick={() => navigate('/ipos')}

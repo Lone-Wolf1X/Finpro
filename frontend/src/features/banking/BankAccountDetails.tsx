@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { bankAccountApi } from '../../api/customerApi';
-import { BankAccount, BankTransaction } from '../../types';
+import { BankAccount } from '../../types';
 import {
     ArrowLeft,
     Wallet,
@@ -9,14 +9,13 @@ import {
     ArrowUpRight,
     History,
     FileText,
-    Download,
-    Calendar,
-    Search,
     Loader2,
-    AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    Download
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function BankAccountDetails() {
     const { id } = useParams();
@@ -101,6 +100,61 @@ export default function BankAccountDetails() {
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const downloadPDF = () => {
+        if (!statement || !account) return;
+
+        const doc = new jsPDF();
+
+        // Add Header
+        doc.setFontSize(20);
+        doc.text('Bank Statement', 14, 22);
+
+        doc.setFontSize(10);
+        doc.text(`Account Name: ${account.customerName}`, 14, 32);
+        doc.text(`Account Number: ${account.accountNumber}`, 14, 38);
+        doc.text(`Bank: ${account.bankName}`, 14, 44);
+        doc.text(`Statement Period: ${startDate} to ${endDate}`, 14, 50);
+        doc.text(`Generated On: ${new Date().toLocaleString()}`, 14, 56);
+
+        const tableColumn = ["Date", "Description", "Ref No", "Debit", "Credit", "Balance"];
+        const tableRows: any[] = [];
+
+        statement.transactions.forEach((tx: any) => {
+            const isCredit = ['DEPOSIT', 'ALLOTMENT', 'REVERSAL', 'SETTLEMENT'].includes(tx.type);
+            const isDebit = ['WITHDRAWAL', 'FEE', 'TRANSFER'].includes(tx.type);
+
+            const debitAmount = isDebit ? tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '';
+            const creditAmount = isCredit ? tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }) : '';
+            const balance = tx.balanceAfter.toLocaleString(undefined, { minimumFractionDigits: 2 });
+
+            const rowData = [
+                new Date(tx.date).toLocaleDateString(),
+                tx.description,
+                tx.referenceId || '-',
+                debitAmount,
+                creditAmount,
+                balance
+            ];
+            tableRows.push(rowData);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 65,
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [22, 163, 74] }, // Green header
+            columnStyles: {
+                3: { halign: 'right', textColor: [220, 38, 38] }, // Debit Red
+                4: { halign: 'right', textColor: [22, 163, 74] }, // Credit Green
+                5: { halign: 'right', fontStyle: 'bold' } // Balance Bold
+            }
+        });
+
+        doc.save(`Statement_${account.accountNumber}_${startDate}_${endDate}.pdf`);
     };
 
     if (loading) return (
@@ -276,95 +330,144 @@ export default function BankAccountDetails() {
 
                     {activeTab === 'statement' && (
                         <div className="space-y-6">
-                            {/* Date Filter */}
-                            <div className="flex flex-wrap gap-4 items-end bg-gray-50 p-4 rounded-2xl">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Start Date</label>
-                                    <input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className="px-3 py-2 rounded-xl border-gray-200 text-sm font-medium"
-                                    />
+                            {/* Date Filter & Actions */}
+                            <div className="flex flex-wrap gap-4 items-end bg-gray-50 p-4 rounded-2xl justify-between">
+                                <div className="flex gap-4 items-end flex-wrap">
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Start Date</label>
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="px-3 py-2 rounded-xl border-gray-200 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">End Date</label>
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className="px-3 py-2 rounded-xl border-gray-200 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={loadStatement}
+                                        className="px-4 py-2 bg-gray-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-lg active:scale-95"
+                                    >
+                                        Refresh Statement
+                                    </button>
                                 </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">End Date</label>
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className="px-3 py-2 rounded-xl border-gray-200 text-sm font-medium"
-                                    />
-                                </div>
+
                                 <button
-                                    onClick={loadStatement}
-                                    className="px-4 py-2 bg-gray-900 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-gray-800"
+                                    onClick={downloadPDF}
+                                    disabled={!statement?.transactions?.length}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                                 >
-                                    Refresh
+                                    <Download size={16} />
+                                    Download PDF
                                 </button>
                             </div>
 
-                            {/* Table */}
+                            {/* Statement Table */}
                             {loadingStatement ? (
-                                <div className="text-center py-12">
-                                    <Loader2 className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
+                                <div className="text-center py-20">
+                                    <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-4" />
+                                    <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Fetching transactions...</p>
                                 </div>
                             ) : (
-                                <div className="overflow-hidden rounded-2xl border border-gray-100">
-                                    <table className="w-full text-left">
-                                        <thead className="bg-gray-50 border-b border-gray-100">
-                                            <tr>
-                                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Date</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Description</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Type</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Amount</th>
-                                                <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-100">
-                                            {statement?.transactions?.length > 0 ? (
-                                                statement.transactions.map((tx: any) => (
-                                                    <tr key={tx.id} className="hover:bg-gray-50/50 transition-colors">
-                                                        <td className="px-6 py-4 text-sm font-mono text-gray-500">
-                                                            {new Date(tx.date).toLocaleDateString()}
-                                                        </td>
-                                                        <td className="px-6 py-4 text-sm font-medium text-gray-900 relative group">
-                                                            {tx.description}
-                                                            {tx.referenceId && (
-                                                                <span className="block text-[10px] text-gray-400 font-mono">Ref: {tx.referenceId}</span>
-                                                            )}
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest border ${tx.type === 'DEPOSIT'
-                                                                    ? 'bg-green-50 text-green-600 border-green-100'
-                                                                    : 'bg-red-50 text-red-600 border-red-100'
-                                                                }`}>
-                                                                {tx.type}
-                                                            </span>
-                                                        </td>
-                                                        <td className={`px-6 py-4 text-sm font-black font-mono text-right ${tx.type === 'DEPOSIT' ? 'text-green-600' : 'text-red-600'
-                                                            }`}>
-                                                            {tx.type === 'DEPOSIT' ? '+' : '-'} {tx.amount.toLocaleString()}
-                                                        </td>
-                                                        <td className="px-6 py-4">
-                                                            <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${tx.status === 'COMPLETED' || tx.status === 'APPROVED'
-                                                                    ? 'bg-blue-50 text-blue-600'
-                                                                    : 'bg-yellow-50 text-yellow-600'
-                                                                }`}>
-                                                                {tx.status}
-                                                            </span>
+                                <div className="overflow-hidden rounded-2xl border border-gray-200 shadow-sm bg-white">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead className="bg-gray-50/80 border-b border-gray-200 backdrop-blur-sm sticky top-0 z-10">
+                                                <tr>
+                                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest w-32">Date</th>
+                                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest w-64">Description</th>
+                                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center w-32">Ref No</th>
+                                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right w-32">Debit</th>
+                                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right w-32">Credit</th>
+                                                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right w-32">Balance</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-100">
+                                                {statement?.transactions?.length > 0 ? (
+                                                    statement.transactions.map((tx: any) => {
+                                                        const isCredit = ['DEPOSIT', 'ALLOTMENT', 'REVERSAL', 'SETTLEMENT'].includes(tx.type);
+                                                        const isDebit = ['WITHDRAWAL', 'FEE', 'TRANSFER'].includes(tx.type);
+
+                                                        return (
+                                                            <tr key={tx.id} className="hover:bg-blue-50/30 transition-colors group">
+                                                                <td className="px-6 py-4">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-sm font-bold text-gray-700 font-mono">
+                                                                            {new Date(tx.date).toLocaleDateString()}
+                                                                        </span>
+                                                                        <span className="text-[10px] text-gray-400 font-mono">
+                                                                            {new Date(tx.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                                        </span>
+                                                                    </div>
+                                                                </td>
+                                                                <td className="px-6 py-4">
+                                                                    <p className="text-xs font-bold text-gray-800 line-clamp-2" title={tx.description}>
+                                                                        {tx.description}
+                                                                    </p>
+                                                                    <span className={`inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-wider
+                                                                        ${tx.status === 'COMPLETED' || tx.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-yellow-50 text-yellow-600 border-yellow-100'}
+                                                                    `}>
+                                                                        {tx.status}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-center">
+                                                                    <span className="font-mono text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
+                                                                        {tx.referenceId ? `#${tx.referenceId}` : '-'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-right">
+                                                                    {isDebit && (
+                                                                        <span className="font-mono text-sm font-bold text-red-600">
+                                                                            {tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-6 py-4 text-right">
+                                                                    {isCredit && (
+                                                                        <span className="font-mono text-sm font-bold text-green-600">
+                                                                            {tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                        </span>
+                                                                    )}
+                                                                </td>
+                                                                <td className="px-6 py-4 text-right bg-gray-50/30">
+                                                                    <span className="font-mono text-sm font-black text-gray-800">
+                                                                        {tx.balanceAfter.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                ) : (
+                                                    <tr>
+                                                        <td colSpan={6} className="px-6 py-20 text-center">
+                                                            <div className="flex flex-col items-center justify-center gap-3">
+                                                                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center">
+                                                                    <History className="text-gray-300" size={24} />
+                                                                </div>
+                                                                <p className="text-gray-500 font-medium">No transactions found for this period</p>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setStartDate(new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0]);
+                                                                        setEndDate(new Date().toISOString().split('T')[0]);
+                                                                    }}
+                                                                    className="text-blue-600 text-xs font-bold hover:underline"
+                                                                >
+                                                                    View last 3 months
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan={5} className="px-6 py-12 text-center text-gray-400 text-sm">
-                                                        No transactions found for this period
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             )}
                         </div>

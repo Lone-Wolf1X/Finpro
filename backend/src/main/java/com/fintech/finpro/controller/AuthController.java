@@ -46,7 +46,10 @@ public class AuthController {
                     .orElseThrow(() -> new RuntimeException("User not found after authentication"));
 
             System.out.println("Generating JWT token...");
-            String token = jwtService.generateToken(userDetails);
+            java.util.Map<String, Object> extraClaims = new java.util.HashMap<>();
+            extraClaims.put("userId", user.getId());
+            extraClaims.put("role", user.getRole());
+            String token = jwtService.generateToken(extraClaims, userDetails);
 
             Tenant tenant = new Tenant();
             tenant.setId(user.getTenantId() != null ? user.getTenantId() : 1L);

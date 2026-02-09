@@ -9,9 +9,7 @@ import {
     History,
     FileText,
     Loader2,
-    Building2,
-    TrendingUp,
-    TrendingDown
+    Building2
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import apiClient from '../../api/apiClient';
@@ -160,8 +158,8 @@ export default function SystemAccountDetails() {
                     <div className="flex items-center gap-2 text-sm font-medium text-gray-500">
                         <span className="bg-gray-100 px-2 py-0.5 rounded textxs font-mono">{account.accountNumber}</span>
                         <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest text-white ${account.accountType === 'EXPENSE' ? 'bg-red-500' :
-                                account.accountType === 'ASSET' || account.accountCode === 'CORE_CAPITAL' ? 'bg-blue-500' :
-                                    account.accountType === 'LIABILITY' ? 'bg-purple-500' : 'bg-green-500'
+                            account.accountType === 'ASSET' || account.accountCode === 'CORE_CAPITAL' ? 'bg-blue-500' :
+                                account.accountType === 'LIABILITY' ? 'bg-purple-500' : 'bg-green-500'
                             }`}>
                             {account.accountCode || account.accountType}
                         </span>
@@ -344,8 +342,8 @@ export default function SystemAccountDetails() {
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest border ${tx.type === 'DEPOSIT' || tx.type === 'CORE_CAPITAL_DEPOSIT'
-                                                                    ? 'bg-green-50 text-green-600 border-green-100'
-                                                                    : 'bg-red-50 text-red-600 border-red-100'
+                                                                ? 'bg-green-50 text-green-600 border-green-100'
+                                                                : 'bg-red-50 text-red-600 border-red-100'
                                                                 }`}>
                                                                 {tx.type}
                                                             </span>
@@ -356,8 +354,8 @@ export default function SystemAccountDetails() {
                                                         </td>
                                                         <td className="px-6 py-4">
                                                             <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest ${tx.status === 'COMPLETED' || tx.status === 'APPROVED'
-                                                                    ? 'bg-blue-50 text-blue-600'
-                                                                    : 'bg-yellow-50 text-yellow-600'
+                                                                ? 'bg-blue-50 text-blue-600'
+                                                                : 'bg-yellow-50 text-yellow-600'
                                                                 }`}>
                                                                 {tx.status}
                                                             </span>

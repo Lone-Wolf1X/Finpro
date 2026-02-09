@@ -71,27 +71,57 @@ public class BankAccountService {
                 java.time.LocalDateTime startDateTime = startDate.atStartOfDay();
                 java.time.LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
+                // 1. Calculate Opening Balance
+                BigDecimal openingBalance = ledgerTransactionRepository.getOpeningBalance(accountId, startDateTime);
+
+                // 2. Fetch Transactions (Sorted by Date ASC for calculation)
+                // Note: The repository method currently orders by DESC. We need to fetch and
+                // recreate or sort here.
+                // Let's use the existing repository method and reverse it, or sort in stream.
                 java.util.List<com.fintech.finpro.entity.LedgerTransaction> transactions = ledgerTransactionRepository
                                 .findByAccountAndDateRange(accountId, startDateTime, endDateTime);
 
-                java.util.List<com.fintech.finpro.dto.BankTransactionDTO> transactionDTOs = transactions.stream()
-                                .map(t -> com.fintech.finpro.dto.BankTransactionDTO.builder()
-                                                .id(t.getId())
-                                                .date(t.getCreatedAt())
-                                                .type(t.getTransactionType().name())
-                                                .amount(t.getAmount())
-                                                .description(t.getParticulars())
-                                                .referenceId(t.getReferenceId())
-                                                .status(t.getStatus())
-                                                .build())
-                                .collect(Collectors.toList());
+                // Sort by ID/Date ASC for calculation (Oldest first)
+                transactions.sort(java.util.Comparator
+                                .comparing(com.fintech.finpro.entity.LedgerTransaction::getCreatedAt));
+
+                List<com.fintech.finpro.dto.BankTransactionDTO> transactionDTOs = new java.util.ArrayList<>();
+                BigDecimal runningBalance = openingBalance;
+
+                for (com.fintech.finpro.entity.LedgerTransaction t : transactions) {
+                        BigDecimal amount = t.getAmount();
+                        boolean isCredit = java.util.List.of("DEPOSIT", "REVERSAL", "SETTLEMENT")
+                                        .contains(t.getTransactionType().name());
+                        boolean isDebit = java.util.List.of("WITHDRAWAL", "FEE", "TRANSFER", "ALLOTMENT")
+                                        .contains(t.getTransactionType().name());
+
+                        if (isCredit) {
+                                runningBalance = runningBalance.add(amount);
+                        } else if (isDebit) {
+                                runningBalance = runningBalance.subtract(amount);
+                        }
+
+                        transactionDTOs.add(com.fintech.finpro.dto.BankTransactionDTO.builder()
+                                        .id(t.getId())
+                                        .date(t.getCreatedAt())
+                                        .type(t.getTransactionType().name())
+                                        .amount(t.getAmount())
+                                        .balanceAfter(runningBalance) // Set the calculated balance
+                                        .description(t.getParticulars())
+                                        .referenceId(t.getReferenceId())
+                                        .status(t.getStatus())
+                                        .build());
+                }
+
+                // 3. Reverse back to Newest First for Display
+                java.util.Collections.reverse(transactionDTOs);
 
                 return com.fintech.finpro.dto.AccountStatementDTO.builder()
                                 .accountId(accountId)
                                 .accountNumber(account.getAccountNumber())
                                 .bankName(account.getBankName())
                                 .customerName(account.getCustomer().getFullName())
-                                .currentBalance(account.getBalance())
+                                .currentBalance(account.getBalance()) // Current actual balance
                                 .transactions(transactionDTOs)
                                 .build();
         }

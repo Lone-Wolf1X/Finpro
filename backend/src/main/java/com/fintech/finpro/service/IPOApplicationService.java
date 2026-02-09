@@ -161,6 +161,8 @@ public class IPOApplicationService {
                 .collect(Collectors.toList());
     }
 
+    private final com.fintech.finpro.repository.BankRepository bankRepository;
+
     @Transactional
     public IPOApplicationDTO approveApplication(Long id, String approvedBy) {
         IPOApplication application = applicationRepository.findById(java.util.Objects.requireNonNull(id))
@@ -170,40 +172,54 @@ public class IPOApplicationService {
             throw new RuntimeException("Only PENDING applications can be approved");
         }
 
-        // CASBA Logic: Deduct NPR 5 Charge
+        // CASBA Logic: Deduct Charge if applicable
         CustomerBankAccount bankAccount = application.getBankAccount();
         if (bankAccount != null) {
-            BigDecimal casbaCharge = BigDecimal.valueOf(5.00);
+            // Determine CASBA Charge
+            BigDecimal casbaCharge = BigDecimal.ZERO;
+            com.fintech.finpro.entity.Bank bank = bankAccount.getBank();
 
-            // Check available balance (excluding held amount)
-            BigDecimal available = bankAccount.getBalance().subtract(bankAccount.getHeldBalance());
+            // If bank relationship is missing, try to find by name
+            if (bank == null && bankAccount.getBankName() != null) {
+                bank = bankRepository.findByName(bankAccount.getBankName()).orElse(null);
+            }
 
-            // Even if low balance, CASBA might arguably force debit, but let's be safe
-            if (available.compareTo(casbaCharge) >= 0) {
-                // Deduct from Actual Balance
-                bankAccount.setBalance(bankAccount.getBalance().subtract(casbaCharge));
-                bankAccountRepository.save(bankAccount);
+            if (bank != null && Boolean.TRUE.equals(bank.getIsCasba())) {
+                casbaCharge = bank.getCasbaCharge();
+            }
 
-                // Dedcut from Ledger: Customer -> Fee Income
-                com.fintech.finpro.entity.LedgerAccount customerLedger = ledgerService.getOrCreateAccount(
-                        application.getCustomer().getFullName() + " - Ledger",
-                        com.fintech.finpro.enums.LedgerAccountType.CUSTOMER_LEDGER,
-                        application.getCustomer().getId());
+            if (casbaCharge.compareTo(BigDecimal.ZERO) > 0) {
+                // Check available balance (excluding held amount)
+                BigDecimal available = bankAccount.getBalance().subtract(bankAccount.getHeldBalance());
 
-                com.fintech.finpro.entity.LedgerAccount feeIncomeAcc = ledgerService.getOrCreateAccount(
-                        "CASBA Income",
-                        com.fintech.finpro.enums.LedgerAccountType.FEE_INCOME,
-                        null);
+                // Deduct if sufficient balance (or force debit logic if desired)
+                if (available.compareTo(casbaCharge) >= 0) {
+                    // Deduct from Actual Balance
+                    bankAccount.setBalance(bankAccount.getBalance().subtract(casbaCharge));
+                    bankAccountRepository.save(bankAccount);
 
-                ledgerService.recordTransaction(
-                        customerLedger,
-                        feeIncomeAcc,
-                        casbaCharge,
-                        "CASBA Charge for IPO " + application.getIpo().getCompanyName(),
-                        com.fintech.finpro.enums.LedgerTransactionType.FEE,
-                        null,
-                        null,
-                        bankAccount);
+                    // Deduct from Ledger: Customer -> Fee Income (CASBA Charges)
+                    com.fintech.finpro.entity.LedgerAccount customerLedger = ledgerService.getOrCreateAccount(
+                            application.getCustomer().getFullName() + " - Ledger",
+                            com.fintech.finpro.enums.LedgerAccountType.CUSTOMER_LEDGER,
+                            application.getCustomer().getId());
+
+                    com.fintech.finpro.entity.LedgerAccount feeIncomeAcc = ledgerService.getOrCreateAccount(
+                            "CASBA Charges",
+                            com.fintech.finpro.enums.LedgerAccountType.FEE_INCOME,
+                            null);
+
+                    ledgerService.recordTransaction(
+                            customerLedger,
+                            feeIncomeAcc,
+                            casbaCharge,
+                            "CASBA Charge for IPO " + application.getIpo().getCompanyName() + " (" + bank.getName()
+                                    + ")",
+                            com.fintech.finpro.enums.LedgerTransactionType.FEE,
+                            null,
+                            null,
+                            bankAccount);
+                }
             }
         }
 

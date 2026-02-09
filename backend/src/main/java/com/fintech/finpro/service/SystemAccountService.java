@@ -18,6 +18,7 @@ public class SystemAccountService {
 
     private final SystemAccountRepository systemAccountRepository;
     private final com.fintech.finpro.repository.LedgerTransactionRepository ledgerTransactionRepository;
+    private final com.fintech.finpro.repository.LedgerAccountRepository ledgerAccountRepository;
     private final LedgerService ledgerService;
 
     /**
@@ -210,43 +211,99 @@ public class SystemAccountService {
         java.time.LocalDateTime startDateTime = startDate.atStartOfDay();
         java.time.LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
-        // Find corresponding Ledger Account
+        // Find corresponding Ledger Account (Safely)
         com.fintech.finpro.entity.LedgerAccount ledgerAccount;
         if (account.getOwnerId() != null) {
-            // Investor Capital
-            ledgerAccount = ledgerService.getOrCreateAccount(
-                    account.getAccountName(),
-                    com.fintech.finpro.enums.LedgerAccountType.CORE_CAPITAL,
-                    account.getOwnerId());
+            // Investor Capital - try to find by specific logic or name
+            // For now, rely on name matching which is consistent with creation logic
+            ledgerAccount = ledgerAccountRepository.findByAccountName(account.getAccountName())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Ledger account not found for system account: " + account.getAccountName()));
         } else {
-            // Core System Account (use simplified lookup or create if missing)
-            ledgerAccount = ledgerService.getOrCreateAccount(
-                    account.getAccountName(),
-                    com.fintech.finpro.enums.LedgerAccountType.CORE_CAPITAL,
-                    null);
+            // Core System Account
+            // Ledger accounts for core system accounts are created with specific names in
+            // LedgerService
+            // E.g. SystemAccount "Core Capital Account" -> LedgerAccount "Core Capital"?
+            // We need to handle this mapping or ensure names match.
+            // Current LedgerService creates "Core Capital", "Office Cash", etc.
+            // SystemAccountService creates "Core Capital Account".
+            // Let's try to match by exact name first, then strict mapping if needed.
+            // Based on previous analysis, createCapitalDepositEntry uses
+            // targetAccount.getAccountName()
+            // So the Ledger Account SHOULD have the same name as System Account if deposits
+            // were made.
+
+            Optional<com.fintech.finpro.entity.LedgerAccount> ledgerOpt = ledgerAccountRepository
+                    .findByAccountName(account.getAccountName());
+            if (ledgerOpt.isEmpty()) {
+                // Fallback: Dictionary mapping for known core accounts if names differ slightly
+                // But ideally we should have ensured they match.
+                // For now, if not found, we cannot generate a valid ledger statement.
+                // But to avoid blocking completely in case of mismatch, we might try the "Core
+                // Capital" vs "Core Capital Account" mapping.
+                if (account.getAccountCode().equals("CORE_CAPITAL")) {
+                    ledgerAccount = ledgerAccountRepository.findByAccountName("Core Capital")
+                            .orElseThrow(() -> new RuntimeException("Ledger account 'Core Capital' not found"));
+                } else if (account.getAccountCode().equals("EXPENSES_POOL")) {
+                    ledgerAccount = ledgerAccountRepository.findByAccountName("Office Expenses") // Mapping Assumption
+                            .orElseThrow(() -> new RuntimeException("Ledger account 'Office Expenses' not found"));
+                } else {
+                    throw new RuntimeException(
+                            "Ledger account not found for system account: " + account.getAccountName());
+                }
+            } else {
+                ledgerAccount = ledgerOpt.get();
+            }
         }
 
-        List<com.fintech.finpro.entity.LedgerTransaction> transactions = ledgerTransactionRepository
-                .findByAccountAndDateRange(ledgerAccount.getId(), startDateTime, endDateTime);
+        // 1. Get Opening Balance
+        BigDecimal openingBalance = ledgerTransactionRepository.getLedgerOpeningBalance(ledgerAccount.getId(),
+                startDateTime);
 
-        List<com.fintech.finpro.dto.BankTransactionDTO> transactionDTOs = transactions.stream()
-                .map(t -> com.fintech.finpro.dto.BankTransactionDTO.builder()
-                        .id(t.getId())
-                        .date(t.getCreatedAt())
-                        .type(t.getTransactionType().name())
-                        .amount(t.getAmount())
-                        .description(t.getParticulars())
-                        .referenceId(t.getReferenceId())
-                        .status(t.getStatus())
-                        .build())
-                .collect(java.util.stream.Collectors.toList());
+        // 2. Fetch Transactions
+        List<com.fintech.finpro.entity.LedgerTransaction> transactions = ledgerTransactionRepository
+                .findByLedgerAccountAndDateRange(ledgerAccount.getId(), startDateTime, endDateTime);
+
+        // 3. Sort by Date ASC for calculation
+        transactions.sort(java.util.Comparator.comparing(com.fintech.finpro.entity.LedgerTransaction::getCreatedAt));
+
+        List<com.fintech.finpro.dto.BankTransactionDTO> transactionDTOs = new java.util.ArrayList<>();
+        BigDecimal runningBalance = openingBalance;
+
+        for (com.fintech.finpro.entity.LedgerTransaction t : transactions) {
+            BigDecimal amount = t.getAmount();
+
+            // Ledger Logic:
+            // If this account is Credit -> Add
+            // If this account is Debit -> Subtract
+            if (t.getCreditAccount().getId().equals(ledgerAccount.getId())) {
+                runningBalance = runningBalance.add(amount);
+            } else if (t.getDebitAccount().getId().equals(ledgerAccount.getId())) {
+                runningBalance = runningBalance.subtract(amount);
+            }
+
+            transactionDTOs.add(com.fintech.finpro.dto.BankTransactionDTO.builder()
+                    .id(t.getId())
+                    .date(t.getCreatedAt())
+                    .type(t.getTransactionType().name())
+                    .amount(t.getAmount())
+                    .balanceAfter(runningBalance)
+                    .description(t.getParticulars())
+                    .referenceId(t.getReferenceId())
+                    .status(t.getStatus())
+                    .build());
+        }
+
+        // 4. Reverse to DESC for display
+        java.util.Collections.reverse(transactionDTOs);
 
         return com.fintech.finpro.dto.AccountStatementDTO.builder()
                 .accountId(accountId)
                 .accountNumber(account.getAccountNumber())
                 .bankName("System Account")
                 .customerName(account.getAccountName())
-                .currentBalance(account.getBalance())
+                .currentBalance(account.getBalance()) // System Account Balance (Should match runningBalance if up to
+                                                      // date)
                 .transactions(transactionDTOs)
                 .build();
     }

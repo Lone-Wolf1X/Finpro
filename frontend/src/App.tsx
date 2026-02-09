@@ -19,6 +19,7 @@ import IPOApplicationForm from './features/customers/IPOApplicationForm';
 import IPOApplicationAdminList from './features/customers/IPOApplicationAdminList';
 import IPOForm from './features/ipos/IPOForm';
 import CustomerProfile from './features/customers/CustomerProfile';
+import BulkCustomerUpload from './features/customers/BulkCustomerUpload';
 import BulkDepositPage from './features/customers/BulkDepositPage';
 import BulkDepositVerificationPage from './features/customers/BulkDepositVerificationPage';
 import BankList from './features/banks/BankList';
@@ -76,6 +77,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
                   <CustomerForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="customers/bulk"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
+                  <BulkCustomerUpload />
                 </ProtectedRoute>
               }
             />

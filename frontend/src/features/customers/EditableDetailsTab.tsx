@@ -34,158 +34,178 @@ const EditableDetailsTab: React.FC<EditableDetailsTabProps> = ({
 }) => {
     const displayCustomer = isEditing && editedCustomer ? editedCustomer : customer;
 
+    // Helper to bust cache for images
+    const getImageUrl = (path: string | undefined) => {
+        if (!path) return null;
+        return `http://127.0.0.1:8080/${path}?t=${new Date().getTime()}`;
+    };
+
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-                {/* Personal Identity Section */}
-                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                    <div className="flex justify-between items-center mb-6 border-b pb-4">
-                        <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                            <User size={20} className="text-blue-500" /> Personal Identity
-                        </h3>
-                        {!isEditing ? (
+        <div className="flex flex-col gap-6">
+            {/* Personal Identity Section */}
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                        <User size={20} className="text-blue-500" /> Personal Identity
+                    </h3>
+                    {!isEditing ? (
+                        <button
+                            onClick={onEdit}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all border border-blue-600 shadow-sm"
+                        >
+                            <Edit size={16} />
+                            Edit
+                        </button>
+                    ) : (
+                        <div className="flex gap-2">
                             <button
-                                onClick={onEdit}
-                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all"
+                                onClick={onSave}
+                                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all shadow-sm"
                             >
-                                <Edit size={16} />
-                                Edit
+                                <Save size={16} />
+                                Save
                             </button>
+                            <button
+                                onClick={onCancel}
+                                className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-xl font-semibold hover:bg-gray-600 transition-all shadow-sm"
+                            >
+                                <X size={16} />
+                                Cancel
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Gender */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Gender</p>
+                        {isEditing ? (
+                            <select
+                                value={displayCustomer.gender}
+                                onChange={(e) => onChange('gender', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 font-medium"
+                            >
+                                <option value="MALE">Male</option>
+                                <option value="FEMALE">Female</option>
+                                <option value="OTHER">Other</option>
+                            </select>
                         ) : (
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={onSave}
-                                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-all"
-                                >
-                                    <Save size={16} />
-                                    Save
-                                </button>
-                                <button
-                                    onClick={onCancel}
-                                    className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-xl font-semibold hover:bg-gray-600 transition-all"
-                                >
-                                    <X size={16} />
-                                    Cancel
-                                </button>
-                            </div>
+                            <p className="text-base font-bold text-gray-700">{displayCustomer.gender}</p>
                         )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-y-6 gap-x-12">
-                        {/* Gender */}
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Gender</p>
-                            {isEditing ? (
-                                <select
-                                    value={displayCustomer.gender}
-                                    onChange={(e) => onChange('gender', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="MALE">Male</option>
-                                    <option value="FEMALE">Female</option>
-                                    <option value="OTHER">Other</option>
-                                </select>
-                            ) : (
-                                <p className="text-base font-semibold text-gray-700">{displayCustomer.gender}</p>
-                            )}
-                        </div>
-
-                        {/* Date of Birth */}
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Date of Birth</p>
-                            {isEditing ? (
-                                <input
-                                    type="date"
-                                    value={displayCustomer.dateOfBirth}
-                                    onChange={(e) => onChange('dateOfBirth', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                />
-                            ) : (
-                                <p className="text-base font-semibold text-gray-700">{displayCustomer.dateOfBirth}</p>
-                            )}
-                        </div>
-
-                        {/* Citizenship Number */}
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Citizenship Number</p>
-                            {isEditing ? (
-                                <input
-                                    type="text"
-                                    value={displayCustomer.citizenshipNumber || ''}
-                                    onChange={(e) => onChange('citizenshipNumber', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                />
-                            ) : (
-                                <p className="text-base font-semibold text-gray-700">{displayCustomer.citizenshipNumber || 'N/A'}</p>
-                            )}
-                        </div>
-
-                        {/* NID Number */}
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">NID Number</p>
-                            {isEditing ? (
-                                <input
-                                    type="text"
-                                    value={displayCustomer.nidNumber || ''}
-                                    onChange={(e) => onChange('nidNumber', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                />
-                            ) : (
-                                <p className="text-base font-semibold text-gray-700">{displayCustomer.nidNumber || 'N/A'}</p>
-                            )}
-                        </div>
-
-                        {/* Contact Number */}
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Contact Number</p>
-                            {isEditing ? (
-                                <input
-                                    type="text"
-                                    value={displayCustomer.contactNumber || ''}
-                                    onChange={(e) => onChange('contactNumber', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                />
-                            ) : (
-                                <p className="text-base font-semibold text-gray-700">{displayCustomer.contactNumber || 'N/A'}</p>
-                            )}
-                        </div>
-
-                        {/* Address */}
-                        <div>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Address</p>
-                            {isEditing ? (
-                                <input
-                                    type="text"
-                                    value={displayCustomer.address || ''}
-                                    onChange={(e) => onChange('address', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                                />
-                            ) : (
-                                <p className="text-base font-semibold text-gray-700">{displayCustomer.address || 'N/A'}</p>
-                            )}
-                        </div>
+                    {/* Date of Birth */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Date of Birth</p>
+                        {isEditing ? (
+                            <input
+                                type="date"
+                                value={displayCustomer.dateOfBirth}
+                                onChange={(e) => onChange('dateOfBirth', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 font-medium"
+                            />
+                        ) : (
+                            <p className="text-base font-bold text-gray-700">{displayCustomer.dateOfBirth}</p>
+                        )}
                     </div>
 
-                    {/* Photo and Signature Upload */}
-                    <div className="mt-8 pt-6 border-t border-gray-200">
-                        <h4 className="text-sm font-bold text-gray-600 uppercase mb-4">Documents</h4>
-                        <div className="grid grid-cols-2 gap-6">
-                            {/* Customer Photo */}
-                            <div>
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">
-                                    Customer Photo
-                                </label>
-                                {displayCustomer.photoPath && (
-                                    <img
-                                        src={`http://127.0.0.1:8080/${displayCustomer.photoPath}`}
-                                        alt="Customer"
-                                        className="w-32 h-32 object-cover rounded-lg mb-2 border-2 border-gray-200"
-                                    />
-                                )}
-                                {isEditing && (
-                                    <label className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg cursor-pointer hover:bg-blue-100 transition-all border border-blue-200 w-fit">
-                                        <Upload size={16} />
-                                        {uploadingPhoto ? 'Uploading...' : 'Upload Photo'}
+                    {/* Citizenship Number */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Citizenship Number</p>
+                        {isEditing ? (
+                            <input
+                                type="text"
+                                value={displayCustomer.citizenshipNumber || ''}
+                                onChange={(e) => onChange('citizenshipNumber', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 font-medium"
+                                placeholder="Enter Citizenship No."
+                            />
+                        ) : (
+                            <p className="text-base font-bold text-gray-700">{displayCustomer.citizenshipNumber || 'N/A'}</p>
+                        )}
+                    </div>
+
+                    {/* NID Number */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">NID Number</p>
+                        {isEditing ? (
+                            <input
+                                type="text"
+                                value={displayCustomer.nidNumber || ''}
+                                onChange={(e) => onChange('nidNumber', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 font-medium"
+                                placeholder="Enter NID No."
+                            />
+                        ) : (
+                            <p className="text-base font-bold text-gray-700">{displayCustomer.nidNumber || 'N/A'}</p>
+                        )}
+                    </div>
+
+                    {/* Contact Number */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Contact Number</p>
+                        {isEditing ? (
+                            <input
+                                type="text"
+                                value={displayCustomer.contactNumber || ''}
+                                onChange={(e) => onChange('contactNumber', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 font-medium"
+                                placeholder="Enter Contact No."
+                            />
+                        ) : (
+                            <p className="text-base font-bold text-gray-700">{displayCustomer.contactNumber || 'N/A'}</p>
+                        )}
+                    </div>
+
+                    {/* Address */}
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Address</p>
+                        {isEditing ? (
+                            <input
+                                type="text"
+                                value={displayCustomer.address || ''}
+                                onChange={(e) => onChange('address', e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-gray-50 font-medium"
+                                placeholder="Enter Address"
+                            />
+                        ) : (
+                            <p className="text-base font-bold text-gray-700">{displayCustomer.address || 'N/A'}</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Documents Section (Cleaned Up) */}
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-6 border-b pb-4">
+                    <FileSignature size={20} className="text-purple-500" /> Documents & Identification
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Customer Photo */}
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 flex flex-col items-center">
+                        <label className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4">
+                            Customer Photo
+                        </label>
+                        <div className="relative group">
+                            {displayCustomer.photoPath ? (
+                                <img
+                                    src={getImageUrl(displayCustomer.photoPath)!}
+                                    alt="Customer"
+                                    className="w-48 h-48 object-cover rounded-2xl shadow-lg border-4 border-white"
+                                />
+                            ) : (
+                                <div className="w-48 h-48 bg-gray-200 rounded-2xl flex items-center justify-center border-4 border-white shadow-inner">
+                                    <User size={64} className="text-gray-400" />
+                                </div>
+                            )}
+
+                            {isEditing && (
+                                <div className="mt-4 flex justify-center w-full">
+                                    <label className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-xl cursor-pointer hover:bg-blue-700 transition-all shadow-md active:scale-95 font-bold">
+                                        <Upload size={18} />
+                                        {uploadingPhoto ? 'Uploading...' : 'Upload New'}
                                         <input
                                             type="file"
                                             accept="image/*"
@@ -194,25 +214,34 @@ const EditableDetailsTab: React.FC<EditableDetailsTabProps> = ({
                                             disabled={uploadingPhoto}
                                         />
                                     </label>
-                                )}
-                            </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
 
-                            {/* Customer Signature */}
-                            <div>
-                                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">
-                                    Customer Signature
-                                </label>
-                                {displayCustomer.signaturePath && (
-                                    <img
-                                        src={`http://127.0.0.1:8080/${displayCustomer.signaturePath}`}
-                                        alt="Signature"
-                                        className="w-32 h-20 object-cover rounded-lg mb-2 border-2 border-gray-200"
-                                    />
-                                )}
-                                {isEditing && (
-                                    <label className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg cursor-pointer hover:bg-blue-100 transition-all border border-blue-200 w-fit">
-                                        <Upload size={16} />
-                                        {uploadingSignature ? 'Uploading...' : 'Upload Signature'}
+                    {/* Customer Signature */}
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 flex flex-col items-center">
+                        <label className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4">
+                            Customer Signature
+                        </label>
+                        <div className="relative group w-full flex flex-col items-center">
+                            {displayCustomer.signaturePath ? (
+                                <img
+                                    src={getImageUrl(displayCustomer.signaturePath)!}
+                                    alt="Signature"
+                                    className="w-full h-48 object-contain bg-white rounded-2xl shadow-lg border-4 border-white p-2"
+                                />
+                            ) : (
+                                <div className="w-full h-48 bg-gray-200 rounded-2xl flex items-center justify-center border-4 border-white shadow-inner">
+                                    <FileSignature size={64} className="text-gray-400" />
+                                </div>
+                            )}
+
+                            {isEditing && (
+                                <div className="mt-4 flex justify-center w-full">
+                                    <label className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-xl cursor-pointer hover:bg-blue-700 transition-all shadow-md active:scale-95 font-bold">
+                                        <Upload size={18} />
+                                        {uploadingSignature ? 'Uploading...' : 'Upload New'}
                                         <input
                                             type="file"
                                             accept="image/*"
@@ -221,47 +250,54 @@ const EditableDetailsTab: React.FC<EditableDetailsTabProps> = ({
                                             disabled={uploadingSignature}
                                         />
                                     </label>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Guardian Section for Minors */}
-                {displayCustomer.customerType === 'MINOR' && (
-                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-                        <h3 className="text-xl font-bold mb-6 text-gray-800 border-b pb-4">Guardian Information</h3>
-                        <div className="grid grid-cols-2 gap-y-6 gap-x-12">
-                            <div>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Guardian Name</p>
-                                <p className="text-base font-semibold text-gray-700">{displayCustomer.guardianName || 'N/A'}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Guardian Relation</p>
-                                <p className="text-base font-semibold text-gray-700">{displayCustomer.guardianRelation || 'N/A'}</p>
-                            </div>
+            {/* Guardian Section for Minors */}
+            {displayCustomer.customerType === 'MINOR' && (
+                <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                    <h3 className="text-xl font-bold mb-6 text-gray-800 border-b pb-4 flex items-center gap-2">
+                        <User size={20} className="text-orange-500" /> Guardian Information
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                            <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-1">Guardian Name</p>
+                            <p className="text-lg font-bold text-gray-800">{displayCustomer.guardianName || 'N/A'}</p>
                         </div>
+                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+                            <p className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-1">Guardian Relation</p>
+                            <p className="text-lg font-bold text-gray-800">{displayCustomer.guardianRelation || 'N/A'}</p>
+                        </div>
+                    </div>
 
-                        {/* Guardian Photo and Signature */}
-                        <div className="mt-8 pt-6 border-t border-gray-200">
-                            <h4 className="text-sm font-bold text-gray-600 uppercase mb-4">Guardian Documents</h4>
-                            <div className="grid grid-cols-2 gap-6">
-                                {/* Guardian Photo */}
-                                <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">
-                                        Guardian Photo {isEditing && <span className="text-red-500">*</span>}
-                                    </label>
-                                    {displayCustomer.guardianPhotoPath && (
-                                        <img
-                                            src={`http://127.0.0.1:8080/${displayCustomer.guardianPhotoPath}`}
-                                            alt="Guardian"
-                                            className="w-32 h-32 object-cover rounded-lg mb-2 border-2 border-gray-200"
-                                        />
-                                    )}
-                                    {isEditing && (
-                                        <label className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-600 rounded-lg cursor-pointer hover:bg-orange-100 transition-all border border-orange-200 w-fit">
-                                            <Upload size={16} />
-                                            {uploadingGuardianPhoto ? 'Uploading...' : 'Upload Guardian Photo'}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Guardian Photo */}
+                        <div className="bg-orange-50/[0.3] p-6 rounded-xl border border-orange-100 flex flex-col items-center">
+                            <label className="text-xs font-black text-orange-800 uppercase tracking-widest mb-4">
+                                Guardian Photo {isEditing && <span className="text-red-500">*</span>}
+                            </label>
+                            <div className="relative group">
+                                {displayCustomer.guardianPhotoPath ? (
+                                    <img
+                                        src={getImageUrl(displayCustomer.guardianPhotoPath)!}
+                                        alt="Guardian"
+                                        className="w-48 h-48 object-cover rounded-2xl shadow-lg border-4 border-white"
+                                    />
+                                ) : (
+                                    <div className="w-48 h-48 bg-gray-200 rounded-2xl flex items-center justify-center border-4 border-white shadow-inner">
+                                        <User size={64} className="text-gray-400" />
+                                    </div>
+                                )}
+
+                                {isEditing && (
+                                    <div className="mt-4 flex justify-center w-full">
+                                        <label className="flex items-center gap-2 px-6 py-2 bg-orange-600 text-white rounded-xl cursor-pointer hover:bg-orange-700 transition-all shadow-md active:scale-95 font-bold">
+                                            <Upload size={18} />
+                                            {uploadingGuardianPhoto ? 'Uploading...' : 'Upload'}
                                             <input
                                                 type="file"
                                                 accept="image/*"
@@ -270,25 +306,34 @@ const EditableDetailsTab: React.FC<EditableDetailsTabProps> = ({
                                                 disabled={uploadingGuardianPhoto}
                                             />
                                         </label>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
 
-                                {/* Guardian Signature */}
-                                <div>
-                                    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">
-                                        Guardian Signature
-                                    </label>
-                                    {displayCustomer.guardianSignaturePath && (
-                                        <img
-                                            src={`http://127.0.0.1:8080/${displayCustomer.guardianSignaturePath}`}
-                                            alt="Guardian Signature"
-                                            className="w-32 h-20 object-cover rounded-lg mb-2 border-2 border-gray-200"
-                                        />
-                                    )}
-                                    {isEditing && (
-                                        <label className="flex items-center gap-2 px-4 py-2 bg-orange-50 text-orange-600 rounded-lg cursor-pointer hover:bg-orange-100 transition-all border border-orange-200 w-fit">
-                                            <Upload size={16} />
-                                            {uploadingGuardianSignature ? 'Uploading...' : 'Upload Guardian Signature'}
+                        {/* Guardian Signature */}
+                        <div className="bg-orange-50/[0.3] p-6 rounded-xl border border-orange-100 flex flex-col items-center">
+                            <label className="text-xs font-black text-orange-800 uppercase tracking-widest mb-4">
+                                Guardian Signature
+                            </label>
+                            <div className="relative group w-full flex flex-col items-center">
+                                {displayCustomer.guardianSignaturePath ? (
+                                    <img
+                                        src={getImageUrl(displayCustomer.guardianSignaturePath)!}
+                                        alt="Guardian Signature"
+                                        className="w-full h-48 object-contain bg-white rounded-2xl shadow-lg border-4 border-white p-2"
+                                    />
+                                ) : (
+                                    <div className="w-full h-48 bg-gray-200 rounded-2xl flex items-center justify-center border-4 border-white shadow-inner">
+                                        <FileSignature size={64} className="text-gray-400" />
+                                    </div>
+                                )}
+
+                                {isEditing && (
+                                    <div className="mt-4 flex justify-center w-full">
+                                        <label className="flex items-center gap-2 px-6 py-2 bg-orange-600 text-white rounded-xl cursor-pointer hover:bg-orange-700 transition-all shadow-md active:scale-95 font-bold">
+                                            <Upload size={18} />
+                                            {uploadingGuardianSignature ? 'Uploading...' : 'Upload'}
                                             <input
                                                 type="file"
                                                 accept="image/*"
@@ -297,48 +342,13 @@ const EditableDetailsTab: React.FC<EditableDetailsTabProps> = ({
                                                 disabled={uploadingGuardianSignature}
                                             />
                                         </label>
-                                    )}
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
-                )}
-            </div>
-
-            {/* Right Sidebar */}
-            <div className="space-y-6">
-                {/* Customer Photo Display */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <h3 className="text-sm font-bold text-gray-600 uppercase mb-4">Profile Photo</h3>
-                    {displayCustomer.photoPath ? (
-                        <img
-                            src={`http://127.0.0.1:8080/${displayCustomer.photoPath}`}
-                            alt={`${displayCustomer.firstName} ${displayCustomer.lastName}`}
-                            className="w-full h-64 object-cover rounded-xl border-2 border-gray-200"
-                        />
-                    ) : (
-                        <div className="w-full h-64 bg-gray-100 rounded-xl flex items-center justify-center border-2 border-gray-200">
-                            <User size={64} className="text-gray-400" />
-                        </div>
-                    )}
                 </div>
-
-                {/* Signature Display */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <h3 className="text-sm font-bold text-gray-600 uppercase mb-4">Signature</h3>
-                    {displayCustomer.signaturePath ? (
-                        <img
-                            src={`http://127.0.0.1:8080/${displayCustomer.signaturePath}`}
-                            alt="Signature"
-                            className="w-full h-32 object-contain rounded-xl border-2 border-gray-200 bg-white p-2"
-                        />
-                    ) : (
-                        <div className="w-full h-32 bg-gray-100 rounded-xl flex items-center justify-center border-2 border-gray-200">
-                            <FileSignature size={32} className="text-gray-400" />
-                        </div>
-                    )}
-                </div>
-            </div>
+            )}
         </div>
     );
 };

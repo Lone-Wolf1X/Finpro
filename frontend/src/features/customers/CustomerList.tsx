@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { customerApi } from '../../api/customerApi';
 import { Customer, CustomerType, KycStatus } from '../../types';
 import { useNavigate } from 'react-router-dom';
+import { Upload, UserPlus } from 'lucide-react';
 
 export default function CustomerList() {
     const navigate = useNavigate();
@@ -93,12 +94,22 @@ export default function CustomerList() {
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">Customers</h1>
-                <button
-                    onClick={() => navigate('/customers/new')}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                >
-                    + Add Customer
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => navigate('/customers/new')}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                    >
+                        <UserPlus size={20} />
+                        Add Customer
+                    </button>
+                    <button
+                        onClick={() => navigate('/customers/bulk')}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+                    >
+                        <Upload size={20} />
+                        Bulk Upload
+                    </button>
+                </div>
             </div>
 
             {/* Filters */}

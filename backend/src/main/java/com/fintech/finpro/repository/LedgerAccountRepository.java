@@ -10,7 +10,10 @@ import java.util.Optional;
 
 @Repository
 public interface LedgerAccountRepository extends JpaRepository<LedgerAccount, Long> {
-    Optional<LedgerAccount> findByAccountTypeAndOwnerId(LedgerAccountType accountType, Long ownerId);
+    @org.springframework.data.jpa.repository.Query("SELECT l FROM LedgerAccount l WHERE l.accountType = :accountType AND (:ownerId IS NULL AND l.ownerId IS NULL OR l.ownerId = :ownerId)")
+    Optional<LedgerAccount> findByAccountTypeAndOwnerId(
+            @org.springframework.data.repository.query.Param("accountType") LedgerAccountType accountType,
+            @org.springframework.data.repository.query.Param("ownerId") Long ownerId);
 
     List<LedgerAccount> findByAccountType(LedgerAccountType accountType);
 

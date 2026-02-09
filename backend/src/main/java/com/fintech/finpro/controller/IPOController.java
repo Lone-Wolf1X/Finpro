@@ -88,10 +88,10 @@ public class IPOController {
         return ResponseEntity.ok(Map.of("message", "IPO deleted successfully"));
     }
 
-    @PostMapping("/auto-close")
+    @PostMapping("/check-status")
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
-    public ResponseEntity<Map<String, String>> autoCloseExpiredIPOs() {
-        ipoService.autoCloseExpiredIPOs();
-        return ResponseEntity.ok(Map.of("message", "Expired IPOs closed successfully"));
+    public ResponseEntity<Map<String, String>> triggerStatusCheck() {
+        ipoService.checkAndSwitchStatus();
+        return ResponseEntity.ok(Map.of("message", "IPO status check triggered successfully"));
     }
 }

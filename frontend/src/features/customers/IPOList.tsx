@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { toast } from 'react-hot-toast';
+import { RootState } from '../../store/store';
 import { ipoApi } from '../../api/customerApi';
 import { IPO, IPOStatus } from '../../types';
 
@@ -60,16 +63,35 @@ export default function IPOList() {
         }).format(amount);
     };
 
+    const { user } = useSelector((state: RootState) => state.auth);
+    const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPERADMIN';
+
+    const handleDelete = async (id: number) => {
+        if (!window.confirm('Are you sure you want to dispose of this IPO? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            await ipoApi.delete(id);
+            toast.success('IPO disposed successfully');
+            loadIPOs();
+        } catch (error) {
+            toast.error('Failed to dispose IPO');
+        }
+    };
+
     return (
         <div className="p-6">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold">IPO Listings</h1>
-                <button
-                    onClick={() => navigate('/ipos/new')}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                >
-                    + Add IPO
-                </button>
+                {isAdmin && (
+                    <button
+                        onClick={() => navigate('/ipos/new')}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                    >
+                        + Add IPO
+                    </button>
+                )}
             </div>
 
             {/* Filters */}
@@ -113,8 +135,8 @@ export default function IPOList() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {ipos.map((ipo) => (
-                        <div key={ipo.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition">
-                            <div className="p-6">
+                        <div key={ipo.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition flex flex-col">
+                            <div className="p-6 flex-grow">
                                 <div className="flex justify-between items-start mb-4">
                                     <div>
                                         <h3 className="text-xl font-bold text-gray-900">{ipo.companyName}</h3>
@@ -160,23 +182,40 @@ export default function IPOList() {
                                 {ipo.description && (
                                     <p className="mt-4 text-sm text-gray-600 line-clamp-2">{ipo.description}</p>
                                 )}
+                            </div>
 
-                                <div className="mt-6 flex gap-2">
-                                    {ipo.isOpen && (
-                                        <button
-                                            onClick={() => navigate(`/ipo-applications/new?ipoId=${ipo.id}`)}
-                                            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                                        >
-                                            Apply Now
-                                        </button>
-                                    )}
+                            {/* Actions */}
+                            <div className="p-6 pt-0 mt-auto flex gap-2">
+                                {ipo.isOpen && (
                                     <button
-                                        onClick={() => navigate(`/ipos/${ipo.id}`)}
-                                        className="flex-1 border border-gray-300 px-4 py-2 rounded-lg hover:bg-gray-50"
+                                        onClick={() => navigate(`/ipo-applications/new?ipoId=${ipo.id}`)}
+                                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium"
                                     >
-                                        View Details
+                                        Apply Now
                                     </button>
-                                </div>
+                                )}
+                                <button
+                                    onClick={() => navigate(`/ipos/${ipo.id}`)}
+                                    className="flex-1 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 font-medium"
+                                >
+                                    Details
+                                </button>
+                                {isAdmin && (
+                                    <>
+                                        <button
+                                            onClick={() => navigate(`/ipos/${ipo.id}/edit`)}
+                                            className="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 font-medium"
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(ipo.id)}
+                                            className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium"
+                                        >
+                                            Dispose
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
                     ))}

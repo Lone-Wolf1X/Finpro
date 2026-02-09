@@ -1,0 +1,4 @@
+FirstName,LastName,Email,MobileNumber,DateOfBirth,Gender,Address,BankAccountNumber,CitizenshipNumber,AccountType,InitialDeposit,IsMinor,GuardianId,GuardianCitizenshipNumber,GuardianRelation
+Mata,Paswan,mata.paswan@example.com,9800000001,1985-01-01,FEMALE,"Lahan-7,Siraha",9990000001,5586544,SAVINGS,1000.00,FALSE,,,
+Bidur,Paswan,urbasi.pwn998@gmail.com,9842828204,2009-06-08,MALE,"Lahan-7,Siraha",1524414,2315454,SAVINGS,1000.00,TRUE,,12345/67,MOTHER
+Test,Major,test.major@example.com,9800000002,1990-01-01,MALE,Kathmandu,9990000002,6546874545,SAVINGS,500.00,FALSE,,,

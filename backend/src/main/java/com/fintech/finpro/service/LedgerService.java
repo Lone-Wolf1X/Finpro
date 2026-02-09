@@ -213,4 +213,44 @@ public class LedgerService {
                 null,
                 checkerId);
     }
+
+    /**
+     * Get statement for a ledger account
+     */
+    @Transactional(readOnly = true)
+    public com.fintech.finpro.dto.AccountStatementDTO getAccountStatement(
+            Long accountId,
+            java.time.LocalDate startDate,
+            java.time.LocalDate endDate) {
+
+        LedgerAccount account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Ledger account not found"));
+
+        java.time.LocalDateTime startDateTime = startDate.atStartOfDay();
+        java.time.LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
+
+        java.util.List<LedgerTransaction> transactions = transactionRepository
+                .findByLedgerAccountAndDateRange(accountId, startDateTime, endDateTime);
+
+        java.util.List<com.fintech.finpro.dto.BankTransactionDTO> transactionDTOs = transactions.stream()
+                .map(t -> com.fintech.finpro.dto.BankTransactionDTO.builder()
+                        .id(t.getId())
+                        .date(t.getCreatedAt())
+                        .type(t.getTransactionType().name())
+                        .amount(t.getAmount())
+                        .description(t.getParticulars())
+                        .referenceId(t.getReferenceId())
+                        .status(t.getStatus())
+                        .build())
+                .collect(java.util.stream.Collectors.toList());
+
+        return com.fintech.finpro.dto.AccountStatementDTO.builder()
+                .accountId(accountId)
+                .accountNumber(account.getId().toString()) // Ledger accounts don't have separate account numbers
+                .bankName("Ledger Account")
+                .customerName(account.getAccountName())
+                .currentBalance(account.getBalance())
+                .transactions(transactionDTOs)
+                .build();
+    }
 }
