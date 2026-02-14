@@ -61,7 +61,7 @@ export default function CapitalDepositForm() {
     };
 
     return (
-        <div className="p-6 max-w-2xl mx-auto">
+        <div className="p-6 w-full">
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
                 <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white">
                     <h1 className="text-3xl font-black uppercase tracking-tight flex items-center gap-3">

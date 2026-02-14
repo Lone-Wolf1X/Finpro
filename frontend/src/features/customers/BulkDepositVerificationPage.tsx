@@ -78,7 +78,7 @@ export default function BulkDepositVerificationPage() {
     if (loading) return <div className="p-8 text-center text-blue-600 animate-pulse font-bold">Loading Verification Engine...</div>;
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <div className="p-6 w-full space-y-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <h1 className="text-3xl font-extrabold text-gray-900">Verify Deposits (Checker)</h1>
                 <p className="text-gray-500 font-medium">Review and verify bulk deposit batches from Makers</p>

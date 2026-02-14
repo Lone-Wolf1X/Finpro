@@ -5,8 +5,10 @@ import com.fintech.finpro.dto.IPOApplicationDTO;
 import com.fintech.finpro.enums.ApplicationStatus;
 import com.fintech.finpro.enums.PaymentStatus;
 import com.fintech.finpro.service.IPOApplicationService;
+import com.fintech.finpro.security.JwtService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,9 +19,11 @@ import java.util.List;
 @RequestMapping("/api/ipo-applications")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+@Slf4j
 public class IPOApplicationController {
 
     private final IPOApplicationService applicationService;
+    private final JwtService jwtService;
 
     @PostMapping
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
@@ -37,9 +41,19 @@ public class IPOApplicationController {
 
     @GetMapping("/customer/{customerId}")
     @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<IPOApplicationDTO>> getApplicationsByCustomerId(@PathVariable Long customerId) {
-        List<IPOApplicationDTO> applications = applicationService.getApplicationsByCustomerId(customerId);
-        return ResponseEntity.ok(applications);
+    public ResponseEntity<?> getApplicationsByCustomerId(@PathVariable Long customerId) {
+        try {
+            List<IPOApplicationDTO> applications = applicationService.getApplicationsByCustomerId(customerId);
+            return ResponseEntity.ok(applications);
+        } catch (Exception e) {
+            log.error("Error fetching IPO applications for customer {}: {}", customerId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(java.util.Map.of(
+                            "error", e.getMessage() != null ? e.getMessage() : "Unknown error",
+                            "exception", e.toString(),
+                            "trace", java.util.Arrays.toString(e.getStackTrace()),
+                            "customerId", customerId));
+        }
     }
 
     @GetMapping("/ipo/{ipoId}")
@@ -58,10 +72,36 @@ public class IPOApplicationController {
 
     @GetMapping
     @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<IPOApplicationDTO>> getApplicationsByStatus(@RequestParam String status) {
+    public ResponseEntity<List<IPOApplicationDTO>> getApplicationsByStatus(
+            @RequestParam(required = false) String status) {
+        if (status == null || status.trim().isEmpty() || "ALL".equalsIgnoreCase(status)) {
+            // Return all or handled differently if we want, but for now let's return all
+            // applications
+            return ResponseEntity.ok(applicationService.getApplicationsByStatus(null));
+        }
         List<IPOApplicationDTO> applications = applicationService.getApplicationsByStatus(
                 ApplicationStatus.valueOf(status.toUpperCase()));
         return ResponseEntity.ok(applications);
+    }
+
+    @PutMapping("/{id}")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<IPOApplicationDTO> updateApplication(
+            @PathVariable Long id,
+            @Valid @RequestBody IPOApplicationCreateDTO dto) {
+        IPOApplicationDTO updated = applicationService.updateApplication(id, dto);
+        return ResponseEntity.ok(updated);
+    }
+
+    @PutMapping("/{id}/verify")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN', 'CHECKER')")
+    public ResponseEntity<IPOApplicationDTO> verifyApplication(
+            @PathVariable Long id,
+            @RequestHeader("Authorization") String token) {
+
+        Long checkerId = jwtService.extractUserId(token.substring(7));
+        IPOApplicationDTO verified = applicationService.verifyApplication(id, checkerId);
+        return ResponseEntity.ok(verified);
     }
 
     @PutMapping("/{id}/approve")

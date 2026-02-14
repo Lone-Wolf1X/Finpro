@@ -12,8 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import com.fintech.finpro.repository.CustomerBankAccountRepository;
 import com.fintech.finpro.repository.CustomerRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
@@ -66,12 +64,22 @@ public class BulkCustomerService {
 
             failureCount += csvToBean.getCapturedExceptions().size();
 
+            // Dictionary to store newly created customers (CitizenshipNumber -> ID)
+            // This is needed because Transactional commit might not be visible immediately
+            // in DB lookup within same transaction context
+            // or simply to avoid DB hits.
+            java.util.Map<String, Long> recentlyCreatedMajors = new java.util.HashMap<>();
+
             // Pass 1: Process Majors
             for (BulkCustomerCSVRecord record : validRecords) {
                 if (!isMinorRecord(record)) {
                     try {
-                        processSingleRecord(record, uploadedByUserId, bankId);
+                        CustomerDTO created = processSingleRecord(record, uploadedByUserId, bankId,
+                                recentlyCreatedMajors);
                         successCount++;
+                        if (created != null && record.getCitizenshipNumber() != null) {
+                            recentlyCreatedMajors.put(record.getCitizenshipNumber(), created.getId());
+                        }
                     } catch (Exception e) {
                         failureCount++;
                         report.add("Failed (Major): " + record.getFirstName() + " " + record.getLastName() + " - "
@@ -85,7 +93,7 @@ public class BulkCustomerService {
             for (BulkCustomerCSVRecord record : validRecords) {
                 if (isMinorRecord(record)) {
                     try {
-                        processSingleRecord(record, uploadedByUserId, bankId);
+                        processSingleRecord(record, uploadedByUserId, bankId, recentlyCreatedMajors);
                         successCount++;
                     } catch (Exception e) {
                         failureCount++;
@@ -121,12 +129,16 @@ public class BulkCustomerService {
         }
     }
 
-    private void processSingleRecord(BulkCustomerCSVRecord record, Long uploadedByUserId, Long bankId) {
+    private CustomerDTO processSingleRecord(BulkCustomerCSVRecord record, Long uploadedByUserId, Long bankId,
+            java.util.Map<String, Long> createdMajorsMap) {
         // 1. Map CSV Record to CustomerCreateDTO
         CustomerCreateDTO customerDTO = new CustomerCreateDTO();
         customerDTO.setFirstName(record.getFirstName());
         customerDTO.setLastName(record.getLastName());
-        customerDTO.setEmail(record.getEmail());
+        if (record.getEmail() != null && !record.getEmail().trim().isEmpty()) {
+            customerDTO.setEmail(record.getEmail());
+        }
+
         customerDTO.setPhone(record.getMobileNumber());
         customerDTO.setDateOfBirth(LocalDate.parse(record.getDateOfBirth()));
         customerDTO.setGender(Gender.valueOf(record.getGender().toUpperCase()));
@@ -142,29 +154,64 @@ public class BulkCustomerService {
         boolean isMinor = isMinorRecord(record);
 
         if (isMinor) {
-            // Logic: ID > Citizenship Number > Error
-            if (record.getGuardianId() != null) {
-                customerDTO.setGuardianId(record.getGuardianId());
+            // Logic: guardianId (numeric or citizenship) > guardianCitizenshipNumber >
+            // Error
+            if (record.getGuardianId() != null && !record.getGuardianId().trim().isEmpty()) {
+                String guardianIdStr = record.getGuardianId().trim();
+
+                // Try to parse as numeric ID first
+                try {
+                    Long guardianId = Long.parseLong(guardianIdStr);
+                    customerDTO.setGuardianId(guardianId);
+                } catch (NumberFormatException e) {
+                    // Not a number, treat as citizenship number
+                    customerRepository.findByCitizenshipNumber(guardianIdStr)
+                            .ifPresentOrElse(
+                                    guardian -> customerDTO.setGuardianId(guardian.getId()),
+                                    () -> {
+                                        throw new RuntimeException("Guardian with Citizenship Number '"
+                                                + guardianIdStr + "' not found in database.");
+                                    });
+                }
             } else if (record.getGuardianCitizenshipNumber() != null
                     && !record.getGuardianCitizenshipNumber().isEmpty()) {
-                // Determine which guardian finding method to use
-                customerRepository.findByCitizenshipNumber(record.getGuardianCitizenshipNumber())
-                        .ifPresentOrElse(
-                                guardian -> customerDTO.setGuardianId(guardian.getId()),
-                                () -> {
-                                    throw new RuntimeException("Guardian with Citizenship Number "
-                                            + record.getGuardianCitizenshipNumber() + " not found.");
-                                });
+
+                String guardianCitNum = record.getGuardianCitizenshipNumber();
+
+                // CHECK 1: Look in recently created map (Pass 1)
+                if (createdMajorsMap.containsKey(guardianCitNum)) {
+                    customerDTO.setGuardianId(createdMajorsMap.get(guardianCitNum));
+                } else {
+                    // CHECK 2: Look in Database
+                    customerRepository.findByCitizenshipNumber(guardianCitNum)
+                            .ifPresentOrElse(
+                                    guardian -> customerDTO.setGuardianId(guardian.getId()),
+                                    () -> {
+                                        throw new RuntimeException("Guardian with Citizenship Number '"
+                                                + guardianCitNum + "' not found in this batch or database.");
+                                    });
+                }
             } else {
                 throw new RuntimeException("Guardian ID or Citizenship Number is required for minor customers");
             }
             customerDTO.setGuardianRelation(record.getGuardianRelation());
+            // Allow linking to pending guardians in bulk upload
+            customerDTO.setSkipGuardianKycCheck(true);
         } else {
             // Majors need citizenship number
             if (record.getCitizenshipNumber() == null || record.getCitizenshipNumber().isEmpty()) {
                 throw new RuntimeException("Citizenship Number is required for Major customers");
             }
             customerDTO.setCitizenshipNumber(record.getCitizenshipNumber());
+        }
+
+        // Always set NID and Citizenship if provided, even for minors (user
+        // requirement)
+        if (record.getCitizenshipNumber() != null && !record.getCitizenshipNumber().trim().isEmpty()) {
+            customerDTO.setCitizenshipNumber(record.getCitizenshipNumber());
+        }
+        if (record.getNidNumber() != null && !record.getNidNumber().trim().isEmpty()) {
+            customerDTO.setNidNumber(record.getNidNumber());
         }
 
         // 2. Create Customer
@@ -192,5 +239,6 @@ public class BulkCustomerService {
                 // For now, let's log it. Ideally we might want to alert the user.
             }
         }
+        return createdCustomer;
     }
 }

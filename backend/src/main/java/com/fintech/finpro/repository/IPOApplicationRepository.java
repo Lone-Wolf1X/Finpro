@@ -13,26 +13,32 @@ import java.util.Optional;
 @Repository
 public interface IPOApplicationRepository extends JpaRepository<IPOApplication, Long> {
 
-    List<IPOApplication> findByCustomerId(Long customerId);
+        // Removed JOIN FETCH to avoid potential mapping issues. Standard lazy loading
+        // will apply.
+        List<IPOApplication> findByCustomerId(Long customerId);
 
-    List<IPOApplication> findByIpoId(Long ipoId);
+        List<IPOApplication> findByIpoId(Long ipoId);
 
-    List<IPOApplication> findByApplicationStatus(ApplicationStatus status);
+        List<IPOApplication> findByApplicationStatus(ApplicationStatus status);
 
-    @Query("SELECT a FROM IPOApplication a WHERE a.customer.id = :customerId AND a.ipo.id = :ipoId")
-    Optional<IPOApplication> findByCustomerIdAndIpoId(
-            @Param("customerId") Long customerId,
-            @Param("ipoId") Long ipoId);
+        @Query("SELECT a FROM IPOApplication a WHERE a.customer.id = :customerId AND a.ipo.id = :ipoId")
+        Optional<IPOApplication> findByCustomerIdAndIpoId(
+                        @Param("customerId") Long customerId,
+                        @Param("ipoId") Long ipoId);
 
-    @Query("SELECT a FROM IPOApplication a WHERE a.applicationStatus = 'PENDING'")
-    List<IPOApplication> findPendingApplications();
+        @Query("SELECT a FROM IPOApplication a WHERE a.ipo.id = :ipoId AND a.applicationStatus = :status")
+        List<IPOApplication> findByIpoIdAndApplicationStatus(@Param("ipoId") Long ipoId,
+                        @Param("status") ApplicationStatus status);
 
-    @Query("SELECT a FROM IPOApplication a WHERE a.customer.id = :customerId AND a.applicationStatus = :status")
-    List<IPOApplication> findByCustomerIdAndStatus(
-            @Param("customerId") Long customerId,
-            @Param("status") ApplicationStatus status);
+        @Query("SELECT a FROM IPOApplication a WHERE a.applicationStatus IN (com.fintech.finpro.enums.ApplicationStatus.PENDING, com.fintech.finpro.enums.ApplicationStatus.PENDING_VERIFICATION)")
+        List<IPOApplication> findPendingApplications();
 
-    Optional<IPOApplication> findByApplicationNumber(String applicationNumber);
+        @Query("SELECT a FROM IPOApplication a WHERE a.customer.id = :customerId AND a.applicationStatus = :status")
+        List<IPOApplication> findByCustomerIdAndStatus(
+                        @Param("customerId") Long customerId,
+                        @Param("status") ApplicationStatus status);
 
-    boolean existsByCustomerIdAndIpoId(Long customerId, Long ipoId);
+        Optional<IPOApplication> findByApplicationNumber(String applicationNumber);
+
+        boolean existsByCustomerIdAndIpoId(Long customerId, Long ipoId);
 }

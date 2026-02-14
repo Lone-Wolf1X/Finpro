@@ -116,7 +116,7 @@ export default function IPOForm() {
     };
 
     return (
-        <div className="p-8 max-w-6xl mx-auto">
+        <div className="p-8 w-full">
             <div className="bg-white rounded-[2.5rem] shadow-2xl border border-gray-100 overflow-hidden">
                 <div className="bg-gray-900 p-10 text-white flex justify-between items-center">
                     <div>

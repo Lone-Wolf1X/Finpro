@@ -71,6 +71,15 @@ public class IPOApplication extends BaseEntity {
     @Column(name = "approved_by")
     private String approvedBy;
 
+    @Column(name = "maker_id")
+    private Long makerId;
+
+    @Column(name = "checker_id")
+    private Long checkerId;
+
+    @Column(name = "status_updated_at")
+    private LocalDateTime statusUpdatedAt;
+
     /**
      * Generate unique application number
      */

@@ -16,14 +16,13 @@ import java.time.LocalDate;
 public class CustomerCreateDTO {
 
     @NotBlank(message = "First name is required")
-    @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
+    @Size(min = 1, max = 50, message = "First name must be between 1 and 50 characters")
     private String firstName;
 
     @NotBlank(message = "Last name is required")
-    @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
+    @Size(min = 1, max = 50, message = "Last name must be between 1 and 50 characters")
     private String lastName;
 
-    @NotBlank(message = "Email is required")
     @Email(message = "Email must be valid")
     private String email;
 
@@ -48,6 +47,8 @@ public class CustomerCreateDTO {
     @NotNull(message = "Bank is required")
     private Long bankId;
 
+    private java.math.BigDecimal initialDeposit; // Optional initial deposit amount
+
     // Guardian ID (required for MINOR customers)
     private Long guardianId;
 
@@ -68,4 +69,15 @@ public class CustomerCreateDTO {
     private String signaturePath;
     private String guardianPhotoPath;
     private String guardianSignaturePath;
+
+    @Builder.Default
+    private boolean skipGuardianKycCheck = false;
+
+    public String getBankAccountNumber() {
+        return bankAccountNumber;
+    }
+
+    public void setBankAccountNumber(String bankAccountNumber) {
+        this.bankAccountNumber = bankAccountNumber;
+    }
 }

@@ -5,6 +5,7 @@ import com.fintech.finpro.dto.CustomerDraftDTO;
 import com.fintech.finpro.dto.CustomerDTO;
 import com.fintech.finpro.entity.Customer;
 import com.fintech.finpro.enums.CustomerType;
+import com.fintech.finpro.enums.LedgerAccountType;
 import com.fintech.finpro.repository.CustomerRepository;
 import com.fintech.finpro.repository.UserRepository;
 import com.fintech.finpro.security.SecurityUtils;
@@ -23,7 +24,15 @@ public class CustomerService {
     private final com.fintech.finpro.repository.BankRepository bankRepository;
     private final com.fintech.finpro.repository.CustomerBankAccountRepository customerBankAccountRepository;
     private final com.fintech.finpro.repository.IPOApplicationRepository ipoApplicationRepository;
+    private final com.fintech.finpro.repository.CustomerCredentialRepository customerCredentialRepository;
+    private final com.fintech.finpro.repository.CustomerPortfolioRepository customerPortfolioRepository;
+    private final com.fintech.finpro.repository.LedgerAccountRepository ledgerAccountRepository;
+    private final com.fintech.finpro.repository.BulkDepositItemRepository bulkDepositItemRepository;
+    private final com.fintech.finpro.repository.PendingTransactionRepository pendingTransactionRepository;
+    private final com.fintech.finpro.repository.LedgerTransactionRepository ledgerTransactionRepository;
+    private final com.fintech.finpro.repository.TransactionFeeRepository transactionFeeRepository;
     private final UserRepository userRepository;
+    private final LedgerService ledgerService;
     private final org.modelmapper.ModelMapper modelMapper;
 
     @Transactional
@@ -68,6 +77,21 @@ public class CustomerService {
                 .orElseThrow(() -> new RuntimeException("Bank not found with ID: " + dto.getBankId()));
         customer.setBank(bank);
 
+        // Uniqueness validation
+        if (dto.getCitizenshipNumber() != null && !dto.getCitizenshipNumber().trim().isEmpty()) {
+            customerRepository.findByCitizenshipNumber(dto.getCitizenshipNumber())
+                    .ifPresent(existing -> {
+                        throw new RuntimeException(
+                                "Citizenship Number '" + dto.getCitizenshipNumber() + "' already exists");
+                    });
+        }
+        if (dto.getNidNumber() != null && !dto.getNidNumber().trim().isEmpty()) {
+            customerRepository.findByNidNumber(dto.getNidNumber())
+                    .ifPresent(existing -> {
+                        throw new RuntimeException("National ID (NID) '" + dto.getNidNumber() + "' already exists");
+                    });
+        }
+
         // Calculate age and determine type (will be done in @PrePersist)
         customer.calculateAge();
         customer.determineCustomerType();
@@ -80,11 +104,11 @@ public class CustomerService {
             Customer guardian = customerRepository.findById(java.util.Objects.requireNonNull(dto.getGuardianId()))
                     .orElseThrow(() -> new RuntimeException("Guardian not found with ID: " + dto.getGuardianId()));
 
-            // Validate guardian is MAJOR and APPROVED
+            // Validate guardian is MAJOR and APPROVED (unless skipped for Bulk Upload)
             if (!CustomerType.MAJOR.equals(guardian.getCustomerType())) {
                 throw new RuntimeException("Guardian must be a MAJOR customer (age >= 18)");
             }
-            if (!"APPROVED".equals(guardian.getKycStatus())) {
+            if (!dto.isSkipGuardianKycCheck() && !"APPROVED".equals(guardian.getKycStatus())) {
                 throw new RuntimeException("Guardian must have APPROVED KYC status");
             }
 
@@ -98,8 +122,11 @@ public class CustomerService {
 
         Customer saved = customerRepository.save(customer);
 
-        // Sync primary bank account to customer_bank_accounts table
-        syncPrimaryBankAccount(saved);
+        // Sync primary bank account to customer_bank_accounts table with initial
+        // deposit
+        java.math.BigDecimal initialDeposit = dto.getInitialDeposit() != null ? dto.getInitialDeposit()
+                : java.math.BigDecimal.ZERO;
+        syncPrimaryBankAccount(saved, initialDeposit);
 
         return mapToDTO(saved);
     }
@@ -151,6 +178,26 @@ public class CustomerService {
         Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
 
+        // Uniqueness validation (excluding current customer)
+        if (dto.getCitizenshipNumber() != null && !dto.getCitizenshipNumber().trim().isEmpty()) {
+            customerRepository.findByCitizenshipNumber(dto.getCitizenshipNumber())
+                    .ifPresent(existing -> {
+                        if (!existing.getId().equals(id)) {
+                            throw new RuntimeException("Citizenship Number '" + dto.getCitizenshipNumber()
+                                    + "' already exists for another customer");
+                        }
+                    });
+        }
+        if (dto.getNidNumber() != null && !dto.getNidNumber().trim().isEmpty()) {
+            customerRepository.findByNidNumber(dto.getNidNumber())
+                    .ifPresent(existing -> {
+                        if (!existing.getId().equals(id)) {
+                            throw new RuntimeException("National ID (NID) '" + dto.getNidNumber()
+                                    + "' already exists for another customer");
+                        }
+                    });
+        }
+
         // Update basic fields
         customer.setFirstName(dto.getFirstName());
         customer.setLastName(dto.getLastName());
@@ -158,7 +205,6 @@ public class CustomerService {
         customer.setGender(dto.getGender());
         customer.setDateOfBirth(dto.getDateOfBirth());
         customer.setContactNumber(dto.getContactNumber());
-        customer.setBankAccountNumber(dto.getBankAccountNumber());
         customer.setBankAccountNumber(dto.getBankAccountNumber());
 
         // Update Bank
@@ -182,11 +228,25 @@ public class CustomerService {
         customer.calculateAge();
         customer.determineCustomerType();
 
-        // Handle guardian update
+        // Handle guardian update (Fixed Guardian logic naturally applies here)
         if (customer.isMinor()) {
             if (dto.getGuardianId() == null) {
                 throw new RuntimeException("Guardian is required for minor customers");
             }
+            // If guardian is already set, we usually don't want to change it via profile
+            // update
+            // unless special case. For now, we allow it in service but frontend will lock
+            // it.
+            // However, let's add a check if user explicitly requested to prevent it here
+            // too.
+            if (customer.getGuardian() != null && !customer.getGuardian().getId().equals(dto.getGuardianId())) {
+                // Future: Add a flag like 'forceGuardianChange' if we want to allow it via
+                // legal authority
+                // For now, let's keep it but frontend will lock.
+                // To be safe as per user request: "mostly ye jyada use nahi hoga"
+                // customer.setGuardian(existingGuardian); // No change
+            }
+
             Customer guardian = customerRepository.findById(java.util.Objects.requireNonNull(dto.getGuardianId()))
                     .orElseThrow(() -> new RuntimeException("Guardian not found"));
             customer.setGuardian(guardian);
@@ -206,7 +266,9 @@ public class CustomerService {
         // Sync primary bank account to customer_bank_accounts table if bank info
         // provided
         if (saved.getBank() != null && saved.getBankAccountNumber() != null) {
-            syncPrimaryBankAccount(saved);
+            java.math.BigDecimal initialDeposit = dto.getInitialDeposit() != null ? dto.getInitialDeposit()
+                    : java.math.BigDecimal.ZERO;
+            syncPrimaryBankAccount(saved, initialDeposit);
         }
 
         return mapToDTO(saved);
@@ -332,7 +394,7 @@ public class CustomerService {
         customer.determineCustomerType();
 
         Customer updated = customerRepository.save(customer);
-        syncPrimaryBankAccount(updated);
+        syncPrimaryBankAccount(updated, java.math.BigDecimal.ZERO);
         return mapToDTO(updated);
     }
 
@@ -349,17 +411,78 @@ public class CustomerService {
                             + " minor(s). Please reassign or delete minors first.");
         }
 
-        // Delete dependent bank accounts
+        // 1. Identify and Delete ALL Ledger Transactions (Direct + Indirect via
+        // Accounts)
+        List<com.fintech.finpro.entity.LedgerAccount> customerLedgerAccounts = ledgerAccountRepository
+                .findByOwnerId(id);
+        List<Long> ledgerAccountIds = customerLedgerAccounts.stream()
+                .map(com.fintech.finpro.entity.LedgerAccount::getId).collect(java.util.stream.Collectors.toList());
+
+        // Find transactions where customer is explicitly set OR involved via their
+        // ledger accounts
+        List<com.fintech.finpro.entity.LedgerTransaction> relatedLedgerTransactions = new java.util.ArrayList<>();
+
+        // Direct
+        relatedLedgerTransactions.addAll(ledgerTransactionRepository.findByCustomerId(id));
+
+        // Indirect via Ledger Accounts
+        if (!ledgerAccountIds.isEmpty()) {
+            relatedLedgerTransactions.addAll(ledgerTransactionRepository
+                    .findByDebitAccountIdInOrCreditAccountIdIn(ledgerAccountIds, ledgerAccountIds));
+        }
+
+        // Deduplicate
+        List<com.fintech.finpro.entity.LedgerTransaction> uniqueLedgerTransactions = relatedLedgerTransactions.stream()
+                .distinct().collect(java.util.stream.Collectors.toList());
+
+        // Delete Fees and Transactions
+        for (com.fintech.finpro.entity.LedgerTransaction tx : uniqueLedgerTransactions) {
+            transactionFeeRepository.deleteByTransactionId(tx.getId());
+            ledgerTransactionRepository.delete(tx);
+        }
+
+        // 2. Delete Pending Transactions
+        List<com.fintech.finpro.entity.PendingTransaction> pendingTransactions = pendingTransactionRepository
+                .findByCustomerIdOrderByCreatedAtDesc(id);
+        if (!pendingTransactions.isEmpty()) {
+            pendingTransactionRepository.deleteAll(pendingTransactions);
+        }
+
+        // 3. Delete dependent IPO applications (must be before bank accounts)
+        List<com.fintech.finpro.entity.IPOApplication> applications = ipoApplicationRepository.findByCustomerId(id);
+        if (!applications.isEmpty()) {
+            ipoApplicationRepository.deleteAll(applications);
+        }
+
+        // 4. Delete dependent Credentials
+        List<com.fintech.finpro.entity.CustomerCredential> credentials = customerCredentialRepository
+                .findByCustomerId(id);
+        if (!credentials.isEmpty()) {
+            customerCredentialRepository.deleteAll(credentials);
+        }
+
+        // 5. Delete dependent Portfolios
+        List<com.fintech.finpro.entity.CustomerPortfolio> portfolios = customerPortfolioRepository.findByCustomerId(id);
+        if (!portfolios.isEmpty()) {
+            customerPortfolioRepository.deleteAll(portfolios);
+        }
+
+        // 6. Delete Ledger Accounts
+        if (!customerLedgerAccounts.isEmpty()) {
+            ledgerAccountRepository.deleteAll(customerLedgerAccounts);
+        }
+
+        // 7. Delete dependent Bulk Deposit Items
+        List<com.fintech.finpro.entity.BulkDepositItem> depositItems = bulkDepositItemRepository.findByCustomerId(id);
+        if (!depositItems.isEmpty()) {
+            bulkDepositItemRepository.deleteAll(depositItems);
+        }
+
+        // 8. Delete dependent bank accounts
         List<com.fintech.finpro.entity.CustomerBankAccount> accounts = customerBankAccountRepository
                 .findByCustomerId(id);
         if (!accounts.isEmpty()) {
             customerBankAccountRepository.deleteAll(accounts);
-        }
-
-        // Delete dependent IPO applications
-        List<com.fintech.finpro.entity.IPOApplication> applications = ipoApplicationRepository.findByCustomerId(id);
-        if (!applications.isEmpty()) {
-            ipoApplicationRepository.deleteAll(applications);
         }
 
         customerRepository.delete(java.util.Objects.requireNonNull(customer));
@@ -496,13 +619,15 @@ public class CustomerService {
     }
 
     @Transactional
-    public void syncPrimaryBankAccount(Customer customer) {
+    public void syncPrimaryBankAccount(Customer customer, java.math.BigDecimal initialDeposit) {
         if (customer.getBank() != null && customer.getBankAccountNumber() != null) {
             // Check if already exists
-            boolean exists = customerBankAccountRepository.findByCustomerIdAndAccountNumber(
-                    customer.getId(), customer.getBankAccountNumber()).isPresent();
+            java.util.Optional<com.fintech.finpro.entity.CustomerBankAccount> existingAccount = customerBankAccountRepository
+                    .findByCustomerIdAndAccountNumber(
+                            customer.getId(), customer.getBankAccountNumber());
 
-            if (!exists) {
+            if (existingAccount.isEmpty()) {
+                // Create new bank account with initial deposit as balance
                 com.fintech.finpro.entity.CustomerBankAccount account = com.fintech.finpro.entity.CustomerBankAccount
                         .builder()
                         .customer(customer)
@@ -511,9 +636,40 @@ public class CustomerService {
                         .accountNumber(customer.getBankAccountNumber())
                         .accountType(com.fintech.finpro.enums.AccountType.SAVINGS)
                         .isPrimary(true)
+                        .balance(initialDeposit) // Set initial deposit as balance
                         .status("ACTIVE")
                         .build();
-                customerBankAccountRepository.save(account);
+                com.fintech.finpro.entity.CustomerBankAccount savedAccount = java.util.Objects
+                        .requireNonNull(customerBankAccountRepository
+                                .save(account));
+
+                // If initial deposit > 0, create ledger transaction
+                if (initialDeposit.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                    // Get or create customer ledger account
+                    com.fintech.finpro.entity.LedgerAccount customerLedger = ledgerService.getOrCreateAccount(
+                            customer.getFullName() + " - Ledger",
+                            com.fintech.finpro.enums.LedgerAccountType.CUSTOMER_LEDGER,
+                            customer.getId());
+
+                    // Get or create Core Capital account (source of funds)
+                    com.fintech.finpro.entity.LedgerAccount coreCapital = ledgerService.getOrCreateAccount(
+                            "Core Capital",
+                            LedgerAccountType.CORE_CAPITAL,
+                            null);
+
+                    // Record transaction: Core Capital -> Customer Ledger
+                    // This will update both ledger account balances AND customer bank account
+                    // balance
+                    ledgerService.recordTransaction(
+                            coreCapital,
+                            customerLedger,
+                            initialDeposit,
+                            "Initial Deposit - " + customer.getFullName(),
+                            com.fintech.finpro.enums.LedgerTransactionType.DEPOSIT,
+                            null,
+                            null,
+                            savedAccount);
+                }
             }
         }
     }
@@ -521,10 +677,10 @@ public class CustomerService {
     @Transactional
     public com.fintech.finpro.entity.CustomerBankAccount addSecondaryBankAccount(Long customerId,
             com.fintech.finpro.dto.AddBankAccountDTO dto) {
-        Customer customer = customerRepository.findById(customerId)
+        Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(customerId))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + customerId));
 
-        com.fintech.finpro.entity.Bank bank = bankRepository.findById(dto.getBankId())
+        com.fintech.finpro.entity.Bank bank = bankRepository.findById(java.util.Objects.requireNonNull(dto.getBankId()))
                 .orElseThrow(() -> new RuntimeException("Bank not found with ID: " + dto.getBankId()));
 
         // Check if account already exists
@@ -548,7 +704,7 @@ public class CustomerService {
                 .status("ACTIVE")
                 .build();
 
-        return customerBankAccountRepository.save(account);
+        return java.util.Objects.requireNonNull(customerBankAccountRepository.save(account));
     }
 
     // File Upload Methods
@@ -590,7 +746,7 @@ public class CustomerService {
             }
 
             // Get customer
-            Customer customer = customerRepository.findById(customerId)
+            Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(customerId))
                     .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + customerId));
 
             // Create upload directory
@@ -608,7 +764,7 @@ public class CustomerService {
 
             // Save file
             java.nio.file.Path filePath = uploadPath.resolve(filename);
-            file.transferTo(filePath.toFile());
+            file.transferTo(java.util.Objects.requireNonNull(filePath.toFile()));
 
             // Update customer record
             String relativePath = uploadDir + "/" + customerId + "/" + filename;

@@ -21,6 +21,8 @@ public interface CustomerBankAccountRepository extends JpaRepository<CustomerBan
     @Query("SELECT b FROM CustomerBankAccount b WHERE b.customer.id = :customerId AND b.isPrimary = true")
     Optional<CustomerBankAccount> findPrimaryAccountByCustomerId(@Param("customerId") Long customerId);
 
+    Optional<CustomerBankAccount> findByCustomerIdAndIsPrimaryTrue(Long customerId);
+
     @Query("SELECT b FROM CustomerBankAccount b WHERE b.customer.id = :customerId AND b.accountNumber = :accountNumber")
     Optional<CustomerBankAccount> findByCustomerIdAndAccountNumber(
             @Param("customerId") Long customerId,

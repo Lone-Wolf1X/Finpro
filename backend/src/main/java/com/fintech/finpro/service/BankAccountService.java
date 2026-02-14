@@ -56,15 +56,17 @@ public class BankAccountService {
                                 .status("ACTIVE")
                                 .build();
 
-                CustomerBankAccount saved = java.util.Objects.requireNonNull(bankAccountRepository.save(bankAccount));
-                return mapToDTO(saved);
+                // CustomerBankAccount saved =
+                // java.util.Objects.requireNonNull(bankAccountRepository.save(bankAccount));
+                return mapToDTO(bankAccountRepository.save(bankAccount));
         }
 
         @Transactional(readOnly = true)
         public com.fintech.finpro.dto.AccountStatementDTO getAccountStatement(Long accountId,
                         java.time.LocalDate startDate,
                         java.time.LocalDate endDate) {
-                CustomerBankAccount account = bankAccountRepository.findById(accountId)
+                CustomerBankAccount account = bankAccountRepository
+                                .findById(java.util.Objects.requireNonNull(accountId))
                                 .orElseThrow(() -> new RuntimeException(
                                                 "Bank account not found with ID: " + accountId));
 
@@ -72,7 +74,22 @@ public class BankAccountService {
                 java.time.LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
                 // 1. Calculate Opening Balance
-                BigDecimal openingBalance = ledgerTransactionRepository.getOpeningBalance(accountId, startDateTime);
+                java.util.List<com.fintech.finpro.enums.LedgerTransactionType> creditTypes = java.util.Arrays.asList(
+                                com.fintech.finpro.enums.LedgerTransactionType.DEPOSIT,
+                                com.fintech.finpro.enums.LedgerTransactionType.REVERSAL,
+                                com.fintech.finpro.enums.LedgerTransactionType.SETTLEMENT);
+
+                java.util.List<com.fintech.finpro.enums.LedgerTransactionType> debitTypes = java.util.Arrays.asList(
+                                com.fintech.finpro.enums.LedgerTransactionType.WITHDRAWAL,
+                                com.fintech.finpro.enums.LedgerTransactionType.FEE,
+                                com.fintech.finpro.enums.LedgerTransactionType.TRANSFER,
+                                com.fintech.finpro.enums.LedgerTransactionType.ALLOTMENT);
+
+                BigDecimal openingBalance = ledgerTransactionRepository.getOpeningBalance(
+                                accountId,
+                                startDateTime,
+                                creditTypes,
+                                debitTypes);
 
                 // 2. Fetch Transactions (Sorted by Date ASC for calculation)
                 // Note: The repository method currently orders by DESC. We need to fetch and
@@ -258,7 +275,8 @@ public class BankAccountService {
         @Transactional
         public com.fintech.finpro.dto.PendingTransactionDTO createDeposit(Long accountId, java.math.BigDecimal amount,
                         String description, Long makerId) {
-                CustomerBankAccount account = bankAccountRepository.findById(accountId)
+                CustomerBankAccount account = bankAccountRepository
+                                .findById(java.util.Objects.requireNonNull(accountId))
                                 .orElseThrow(() -> new RuntimeException(
                                                 "Bank account not found with ID: " + accountId));
 
@@ -318,7 +336,8 @@ public class BankAccountService {
         public com.fintech.finpro.dto.PendingTransactionDTO createWithdrawal(Long accountId,
                         java.math.BigDecimal amount,
                         String description, Long makerId) {
-                CustomerBankAccount account = bankAccountRepository.findById(accountId)
+                CustomerBankAccount account = bankAccountRepository
+                                .findById(java.util.Objects.requireNonNull(accountId))
                                 .orElseThrow(() -> new RuntimeException(
                                                 "Bank account not found with ID: " + accountId));
 
@@ -339,8 +358,9 @@ public class BankAccountService {
                                 .isBulk(false)
                                 .build();
 
-                com.fintech.finpro.entity.PendingTransaction saved = pendingTransactionRepository.save(transaction);
-                return mapTransactionToDTO(saved);
+                // com.fintech.finpro.entity.PendingTransaction saved =
+                // pendingTransactionRepository.save(transaction);
+                return mapTransactionToDTO(pendingTransactionRepository.save(transaction));
         }
 
         /**

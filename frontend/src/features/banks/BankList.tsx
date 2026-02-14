@@ -59,7 +59,7 @@ export default function BankList() {
 
     return (
         <div className="p-6">
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">Bank Management</h1>
                     <button

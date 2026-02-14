@@ -35,6 +35,8 @@ public class IPOApplicationDTO {
     private LocalDateTime rejectedAt;
     private String rejectionReason;
     private String approvedBy;
+    private Long makerId;
+    private Long checkerId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

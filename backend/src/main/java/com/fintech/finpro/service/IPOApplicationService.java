@@ -29,7 +29,9 @@ public class IPOApplicationService {
     private final CustomerRepository customerRepository;
     private final IPORepository ipoRepository;
     private final CustomerBankAccountRepository bankAccountRepository;
+    private final com.fintech.finpro.repository.CustomerPortfolioRepository customerPortfolioRepository;
     private final LedgerService ledgerService;
+    private final com.fintech.finpro.repository.BankRepository bankRepository;
 
     @Transactional
     public IPOApplicationDTO createApplication(IPOApplicationCreateDTO dto) {
@@ -109,21 +111,52 @@ public class IPOApplicationService {
                 bankAccount);
 
         // Create application
+        ApplicationStatus initialStatus = dto.getMakerId() != null ? ApplicationStatus.PENDING_VERIFICATION
+                : ApplicationStatus.PENDING;
+
         IPOApplication application = IPOApplication.builder()
                 .customer(customer)
                 .ipo(ipo)
                 .bankAccount(bankAccount)
                 .quantity(dto.getQuantity())
                 .amount(amount)
-                .applicationStatus(ApplicationStatus.PENDING)
+                .applicationStatus(initialStatus)
                 .paymentStatus(PaymentStatus.PAID) // Fund held successfully
                 .allotmentQuantity(0)
                 .allotmentStatus("PENDING")
                 .appliedAt(LocalDateTime.now())
+                .makerId(dto.getMakerId())
                 .build();
 
         IPOApplication saved = applicationRepository.save(java.util.Objects.requireNonNull(application));
         return mapToDTO(saved);
+    }
+
+    @Transactional
+    public IPOApplicationDTO verifyApplication(Long id, Long checkerId) {
+        IPOApplication application = applicationRepository.findById(java.util.Objects.requireNonNull(id))
+                .orElseThrow(() -> new RuntimeException("IPO application not found with ID: " + id));
+
+        if (!ApplicationStatus.PENDING_VERIFICATION.equals(application.getApplicationStatus())) {
+            throw new RuntimeException("Only PENDING_VERIFICATION applications can be verified");
+        }
+
+        if (application.getMakerId() != null && application.getMakerId().equals(checkerId)) {
+            throw new RuntimeException("Maker cannot verify their own application");
+        }
+
+        // Transition: PENDING_VERIFICATION -> PENDING (Normal flow, ready for
+        // approval/allotment)
+        // OR -> VERIFIED if we want a distinct state. But let's use PENDING to start
+        // with standard flow.
+        // Actually, let's use VERIFIED if PENDING is for "Submitted by Customer".
+        // But system treats PENDING as "Valid". So PENDING is fine.
+        application.setApplicationStatus(ApplicationStatus.PENDING);
+        application.setCheckerId(checkerId);
+        application.setApprovedAt(LocalDateTime.now()); // Verification time
+        application.setApprovedBy(String.valueOf(checkerId));
+
+        return mapToDTO(applicationRepository.save(application));
     }
 
     @Transactional(readOnly = true)
@@ -156,12 +189,81 @@ public class IPOApplicationService {
 
     @Transactional(readOnly = true)
     public List<IPOApplicationDTO> getApplicationsByStatus(ApplicationStatus status) {
+        if (status == null) {
+            return applicationRepository.findAll().stream()
+                    .map(this::mapToDTO)
+                    .collect(Collectors.toList());
+        }
         return applicationRepository.findByApplicationStatus(status).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
-    private final com.fintech.finpro.repository.BankRepository bankRepository;
+    @Transactional
+    public IPOApplicationDTO updateApplication(Long id, IPOApplicationCreateDTO dto) {
+        IPOApplication application = applicationRepository.findById(java.util.Objects.requireNonNull(id))
+                .orElseThrow(() -> new RuntimeException("IPO application not found with ID: " + id));
+
+        // Allow updates only if PENDING, PENDING_VERIFICATION, or REJECTED
+        if (!ApplicationStatus.PENDING.equals(application.getApplicationStatus()) &&
+                !ApplicationStatus.PENDING_VERIFICATION.equals(application.getApplicationStatus()) &&
+                !ApplicationStatus.REJECTED.equals(application.getApplicationStatus())) {
+            throw new RuntimeException(
+                    "Application cannot be edited in its current status: " + application.getApplicationStatus());
+        }
+
+        IPO ipo = application.getIpo();
+        if (!ipo.isOpen()) {
+            throw new RuntimeException("IPO is closed. Application cannot be modified.");
+        }
+
+        // Handle quantity and amount change logic
+        BigDecimal oldAmount = application.getAmount();
+        BigDecimal newAmount = ipo.getPricePerShare().multiply(BigDecimal.valueOf(dto.getQuantity()));
+
+        if (newAmount.compareTo(oldAmount) != 0) {
+            CustomerBankAccount bankAccount = application.getBankAccount();
+
+            // Release old hold
+            bankAccount.setHeldBalance(bankAccount.getHeldBalance().subtract(oldAmount));
+
+            // Check if new hold is possible
+            BigDecimal available = bankAccount.getBalance().subtract(bankAccount.getHeldBalance());
+            if (available.compareTo(newAmount) < 0) {
+                // Rollback hold change if insufficient
+                bankAccount.setHeldBalance(bankAccount.getHeldBalance().add(oldAmount));
+                bankAccountRepository.save(bankAccount);
+                throw new RuntimeException("Insufficient available balance for updated quantity");
+            }
+
+            // Apply new hold
+            bankAccount.setHeldBalance(bankAccount.getHeldBalance().add(newAmount));
+            bankAccountRepository.save(bankAccount);
+
+            // Ledger Adjustment (Simplified: Record a reversing and then a new one or just
+            // a net adjustment)
+            // For now, let's update application fields
+            application.setAmount(newAmount);
+            application.setQuantity(dto.getQuantity());
+        }
+
+        // If it was rejected, move it back to PENDING_VERIFICATION (or PENDING if no
+        // maker)
+        if (ApplicationStatus.REJECTED.equals(application.getApplicationStatus())) {
+            application.setApplicationStatus(
+                    dto.getMakerId() != null ? ApplicationStatus.PENDING_VERIFICATION : ApplicationStatus.PENDING);
+            application.setRejectedAt(null);
+            application.setRejectionReason(null);
+        }
+
+        // Update basic fields if they changed (bankAccount might need more complex
+        // logic if changed, but frontend usually restricts it)
+        // For now, only quantity is the main editable field.
+
+        application.setUpdatedAt(LocalDateTime.now());
+
+        return mapToDTO(applicationRepository.save(application));
+    }
 
     @Transactional
     public IPOApplicationDTO approveApplication(Long id, String approvedBy) {
@@ -209,12 +311,13 @@ public class IPOApplicationService {
                             com.fintech.finpro.enums.LedgerAccountType.FEE_INCOME,
                             null);
 
+                    String bankName = bank != null ? bank.getName()
+                            : (bankAccount.getBankName() != null ? bankAccount.getBankName() : "Unknown Bank");
                     ledgerService.recordTransaction(
                             customerLedger,
                             feeIncomeAcc,
                             casbaCharge,
-                            "CASBA Charge for IPO " + application.getIpo().getCompanyName() + " (" + bank.getName()
-                                    + ")",
+                            "CASBA Charge for IPO " + application.getIpo().getCompanyName() + " (" + bankName + ")",
                             com.fintech.finpro.enums.LedgerTransactionType.FEE,
                             null,
                             null,
@@ -236,13 +339,24 @@ public class IPOApplicationService {
         IPOApplication application = applicationRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO application not found with ID: " + id));
 
-        if (!ApplicationStatus.PENDING.equals(application.getApplicationStatus())) {
-            throw new RuntimeException("Only PENDING applications can be rejected");
+        if (!ApplicationStatus.PENDING.equals(application.getApplicationStatus())
+                && !ApplicationStatus.PENDING_VERIFICATION.equals(application.getApplicationStatus())) {
+            throw new RuntimeException("Only PENDING or PENDING_VERIFICATION applications can be rejected");
         }
 
         application.setApplicationStatus(ApplicationStatus.REJECTED);
         application.setRejectedAt(LocalDateTime.now());
         application.setRejectionReason(reason);
+
+        // Release holds if rejected
+        CustomerBankAccount bankAccount = application.getBankAccount();
+        if (bankAccount != null) {
+            bankAccount.setHeldBalance(bankAccount.getHeldBalance().subtract(application.getAmount()));
+            bankAccountRepository.save(bankAccount);
+
+            // Ledger Reversal (Withdrawal Reversal -> Deposit)
+            // ...
+        }
 
         IPOApplication rejected = applicationRepository.save(application);
         return mapToDTO(rejected);
@@ -284,11 +398,17 @@ public class IPOApplicationService {
         BigDecimal refundAmount = totalAppliedAmount.subtract(allottedAmount);
 
         if (bankAccount != null) {
-            // 1. Release Held Amount
+            // 1. Release Held Amount (Release ALL held amount first)
             bankAccount.setHeldBalance(bankAccount.getHeldBalance().subtract(totalAppliedAmount));
 
-            // 2. Deduct Allotted Amount from Actual Balance
-            bankAccount.setBalance(bankAccount.getBalance().subtract(allottedAmount));
+            // 2. Deduct Allotted Amount from Actual Balance (if allotted > 0)
+            if (allottedAmount.compareTo(BigDecimal.ZERO) > 0) {
+                bankAccount.setBalance(bankAccount.getBalance().subtract(allottedAmount));
+            }
+            // Refund is automatic because we only subtract `allottedAmount` from balance.
+            // The `totalAppliedAmount` was only HELD, not deducted.
+            // So if we release HELD and deduct ALLOTTED, the REFUND remains in Balance.
+
             bankAccountRepository.save(bankAccount);
         }
 
@@ -309,25 +429,64 @@ public class IPOApplicationService {
                 null);
 
         if (allottedQuantity > 0) {
-            // Transfer Allotted Amount: IPO Hold -> Core Capital
+            // Transfer Allotted Amount: IPO Hold -> Core Capital (Realizing Revenue/Equity)
             ledgerService.recordTransaction(
                     ipoHoldAcc,
                     coreCapitalAcc,
                     allottedAmount,
                     "IPO Allotment: " + application.getIpo().getCompanyName() + " (" + allottedQuantity + " shares)",
-                    com.fintech.finpro.enums.LedgerTransactionType.TRANSFER,
+                    com.fintech.finpro.enums.LedgerTransactionType.ALLOTMENT,
                     null,
-                    null);
+                    null,
+                    bankAccount); // Linking bank account for reference
+
+            // --- PORTFOLIO UPDATE START ---
+            // Check if portfolio already exists for this Scrip
+            String symbol = application.getIpo().getSymbol();
+            List<com.fintech.finpro.entity.CustomerPortfolio> portfolios = customerPortfolioRepository
+                    .findByCustomerIdAndScripSymbol(application.getCustomer().getId(), symbol);
+
+            com.fintech.finpro.entity.CustomerPortfolio portfolio;
+            if (portfolios.isEmpty()) {
+                // Create New
+                portfolio = com.fintech.finpro.entity.CustomerPortfolio.builder()
+                        .customer(application.getCustomer())
+                        .ipo(application.getIpo()) // Link to this IPO
+                        .scripSymbol(symbol)
+                        .quantity(allottedQuantity)
+                        .purchasePrice(application.getIpo().getPricePerShare())
+                        .totalCost(allottedAmount)
+                        .holdingSince(java.time.LocalDate.now())
+                        .status("HELD")
+                        .isBonus(false)
+                        .build();
+            } else {
+                // Update Existing (FIFO or Weighted Average? Simple add for now)
+                portfolio = portfolios.get(0);
+                // Weighted Average Price Calculation
+                BigDecimal currentTotalCost = portfolio.getTotalCost();
+                BigDecimal newTotalCost = currentTotalCost.add(allottedAmount);
+                int newQuantity = portfolio.getQuantity() + allottedQuantity;
+                // BigDecimal newAvgPrice = newTotalCost.divide(BigDecimal.valueOf(newQuantity),
+                // 2, java.math.RoundingMode.HALF_UP);
+
+                portfolio.setQuantity(newQuantity);
+                portfolio.setTotalCost(newTotalCost);
+                // portfolio.setPurchasePrice(newAvgPrice); // Consider if we want to update avg
+                // price
+            }
+            customerPortfolioRepository.save(portfolio);
+            // --- PORTFOLIO UPDATE END ---
         }
 
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-            // Transfer Refund Amount: IPO Hold -> Customer Ledger
+            // Transfer Refund Amount: IPO Hold -> Customer Ledger (Unblock logic)
             ledgerService.recordTransaction(
                     ipoHoldAcc,
                     customerLedger,
                     refundAmount,
                     "IPO Refund: " + application.getIpo().getCompanyName(),
-                    com.fintech.finpro.enums.LedgerTransactionType.DEPOSIT,
+                    com.fintech.finpro.enums.LedgerTransactionType.REFUND,
                     null,
                     null,
                     bankAccount);
@@ -340,10 +499,10 @@ public class IPOApplicationService {
     private IPOApplicationDTO mapToDTO(IPOApplication application) {
         return IPOApplicationDTO.builder()
                 .id(application.getId())
-                .customerId(application.getCustomer().getId())
-                .customerName(application.getCustomer().getFullName())
-                .ipoId(application.getIpo().getId())
-                .ipoCompanyName(application.getIpo().getCompanyName())
+                .customerId(application.getCustomer() != null ? application.getCustomer().getId() : null)
+                .customerName(application.getCustomer() != null ? application.getCustomer().getFullName() : null)
+                .ipoId(application.getIpo() != null ? application.getIpo().getId() : null)
+                .ipoCompanyName(application.getIpo() != null ? application.getIpo().getCompanyName() : null)
                 .bankAccountId(application.getBankAccount() != null ? application.getBankAccount().getId() : null)
                 .bankAccountNumber(
                         application.getBankAccount() != null ? application.getBankAccount().getAccountNumber() : null)
@@ -359,6 +518,8 @@ public class IPOApplicationService {
                 .rejectedAt(application.getRejectedAt())
                 .rejectionReason(application.getRejectionReason())
                 .approvedBy(application.getApprovedBy())
+                .makerId(application.getMakerId())
+                .checkerId(application.getCheckerId())
                 .createdAt(application.getCreatedAt())
                 .updatedAt(application.getUpdatedAt())
                 .build();

@@ -35,7 +35,8 @@ public class TransactionVerificationService {
     public PendingTransactionDTO approveTransaction(Long transactionId, Long checkerId) {
         log.info("Approving transaction {} by checker {}", transactionId, checkerId);
 
-        PendingTransaction transaction = pendingTransactionRepository.findById(transactionId)
+        PendingTransaction transaction = pendingTransactionRepository
+                .findById(java.util.Objects.requireNonNull(transactionId))
                 .orElseThrow(() -> new RuntimeException("Transaction not found"));
 
         if (!transaction.isPending()) {
@@ -45,7 +46,8 @@ public class TransactionVerificationService {
         String type = transaction.getTransactionType();
         if ("CORE_CAPITAL_DEPOSIT".equals(type) || "CORE_CAPITAL_WITHDRAWAL".equals(type)) {
             // Enforce Admin Verification
-            com.fintech.finpro.entity.User checker = userRepository.findById(checkerId)
+            com.fintech.finpro.entity.User checker = userRepository
+                    .findById(java.util.Objects.requireNonNull(checkerId))
                     .orElseThrow(() -> new RuntimeException("Checker user not found"));
 
             if (checker.getRole() != com.fintech.finpro.enums.Role.ADMIN &&
@@ -104,7 +106,8 @@ public class TransactionVerificationService {
     public PendingTransactionDTO rejectTransaction(Long transactionId, Long checkerId, String reason) {
         log.info("Rejecting transaction {} by checker {}", transactionId, checkerId);
 
-        PendingTransaction transaction = pendingTransactionRepository.findById(transactionId)
+        PendingTransaction transaction = pendingTransactionRepository
+                .findById(java.util.Objects.requireNonNull(transactionId))
                 .orElseThrow(() -> new RuntimeException("Transaction not found"));
 
         if (!transaction.isPending()) {

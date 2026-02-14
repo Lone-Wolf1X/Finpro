@@ -108,9 +108,9 @@ export const ipoApi = {
     update: (id: number, data: CreateIPORequest) =>
         apiClient.put<IPO>(`/ipos/${id}`, data),
 
-    updateStatus: (id: number, status: string) =>
-        apiClient.put<IPO>(`/ipos/${id}/status`, null, { params: { status } }),
-
+    updateStatus: (id: number, status: string) => apiClient.put<IPO>(`/ipos/${id}/status`, null, { params: { status } }),
+    allot: (id: number) => apiClient.post<IPO>(`/ipos/${id}/allot`),
+    list: (id: number) => apiClient.post<IPO>(`/ipos/${id}/list`),
     delete: (id: number) =>
         apiClient.delete(`/ipos/${id}`),
 
@@ -120,12 +120,9 @@ export const ipoApi = {
 
 // IPO Application API
 export const ipoApplicationApi = {
-    getAll: (params?: { status?: string }) =>
-        apiClient.get<IPOApplication[]>('/ipo-applications', { params }),
-
-    getById: (id: number) =>
-        apiClient.get<IPOApplication>(`/ipo-applications/${id}`),
-
+    getAll: (params?: { status?: string, ipoId?: number, customerId?: number }) => apiClient.get<IPOApplication[]>('/ipo-applications', { params }),
+    getById: (id: number) => apiClient.get<IPOApplication>(`/ipo-applications/${id}`),
+    update: (id: number, data: CreateIPOApplicationRequest) => apiClient.put<IPOApplication>(`/ipo-applications/${id}`, data),
     getByCustomerId: (customerId: number) =>
         apiClient.get<IPOApplication[]>(`/ipo-applications/customer/${customerId}`),
 
@@ -140,6 +137,9 @@ export const ipoApplicationApi = {
 
     approve: (id: number, approvedBy: string) =>
         apiClient.put<IPOApplication>(`/ipo-applications/${id}/approve`, null, { params: { approvedBy } }),
+
+    verify: (id: number) =>
+        apiClient.put<IPOApplication>(`/ipo-applications/${id}/verify`),
 
     reject: (id: number, reason: string) =>
         apiClient.put<IPOApplication>(`/ipo-applications/${id}/reject`, null, { params: { reason } }),
@@ -197,4 +197,19 @@ export const transactionVerificationApi = {
 
     reject: (id: number, reason: string) =>
         apiClient.post<import('../types').PendingTransaction>(`/transactions/${id}/reject`, { reason }),
+};
+
+// Customer Portfolio API
+export const portfolioApi = {
+    getByCustomerId: (customerId: number) =>
+        apiClient.get<import('../types').CustomerPortfolio[]>(`/portfolios/customer/${customerId}`),
+};
+
+// Secondary Market API
+export const secondaryMarketApi = {
+    sell: (portfolioId: number, quantity: number, price: number) =>
+        apiClient.post('/secondary-market/sell', null, { params: { portfolioId, quantity, price } }),
+
+    buy: (symbol: string, quantity: number, price: number) =>
+        apiClient.post('/secondary-market/buy', null, { params: { symbol, quantity, price } }),
 };

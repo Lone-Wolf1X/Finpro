@@ -52,7 +52,7 @@ export default function SystemAccountManagement() {
 
     return (
         <div className="p-8 bg-gray-50/50 min-h-screen">
-            <div className="max-w-6xl mx-auto">
+            <div className="w-full">
                 {/* Header Section */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                     <div>

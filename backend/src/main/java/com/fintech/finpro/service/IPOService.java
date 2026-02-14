@@ -18,6 +18,15 @@ import java.util.stream.Collectors;
 public class IPOService {
 
     private final IPORepository ipoRepository;
+    private final com.fintech.finpro.repository.CustomerPortfolioRepository customerPortfolioRepository;
+
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.fintech.finpro.repository.IPOApplicationRepository applicationRepository;
+
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.fintech.finpro.service.IPOApplicationService applicationService;
 
     @Transactional
     public IPODTO createIPO(IPOCreateDTO dto) {
@@ -32,15 +41,7 @@ public class IPOService {
         }
 
         // Determine initial status
-        IPOStatus status;
-        LocalDateTime now = LocalDateTime.now();
-        if (dto.getOpenDate().isAfter(now)) {
-            status = IPOStatus.UPCOMING;
-        } else if (!dto.getOpenDate().isAfter(now) && dto.getCloseDate().isAfter(now)) {
-            status = IPOStatus.OPEN;
-        } else {
-            status = IPOStatus.CLOSED;
-        }
+        IPOStatus status = determineStatus(dto.getOpenDate(), dto.getCloseDate(), dto.getListingDate());
 
         IPO ipo = IPO.builder()
                 .companyName(dto.getCompanyName())
@@ -61,10 +62,25 @@ public class IPOService {
         return mapToDTO(saved);
     }
 
+    private IPOStatus determineStatus(LocalDateTime openDate, LocalDateTime closeDate, LocalDateTime listingDate) {
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(openDate)) {
+            return IPOStatus.UPCOMING;
+        } else if (now.isAfter(openDate) && now.isBefore(closeDate)) {
+            return IPOStatus.OPEN;
+        } else {
+            return IPOStatus.CLOSED; // Default to CLOSED if past close date
+        }
+    }
+
     @Transactional(readOnly = true)
     public IPODTO getIPOById(Long id) {
         IPO ipo = ipoRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + id));
+
+        // Auto-update status if needed
+        ipo = checkAndSwitchStatus(ipo);
+
         return mapToDTO(ipo);
     }
 
@@ -84,7 +100,7 @@ public class IPOService {
 
     @Transactional(readOnly = true)
     public List<IPODTO> getUpcomingIPOs() {
-        return ipoRepository.findUpcomingIPOs().stream()
+        return ipoRepository.findUpcomingIPOs(LocalDateTime.now()).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
@@ -112,6 +128,9 @@ public class IPOService {
         ipo.setAllotmentDate(dto.getAllotmentDate());
         ipo.setListingDate(dto.getListingDate());
         ipo.setDescription(dto.getDescription());
+
+        // Recalculate status based on new dates
+        ipo.setStatus(determineStatus(ipo.getOpenDate(), ipo.getCloseDate(), ipo.getListingDate()));
 
         IPO updated = ipoRepository.save(ipo);
         return mapToDTO(updated);
@@ -150,20 +169,113 @@ public class IPOService {
         LocalDateTime now = LocalDateTime.now();
 
         // 1. Switch UPCOMING -> OPEN
-        List<IPO> toOpen = ipoRepository.findIPOsToOpen();
+        // Use repository query for efficiency
+        List<IPO> toOpen = ipoRepository.findIPOsToOpen(now);
         for (IPO ipo : toOpen) {
             ipo.setStatus(IPOStatus.OPEN);
             ipoRepository.save(ipo);
-            // In a real app, we might send notifications here
         }
 
         // 2. Switch OPEN -> CLOSED
-        List<IPO> toClose = ipoRepository.findIPOsToClose();
+        List<IPO> toClose = ipoRepository.findIPOsToClose(now);
         for (IPO ipo : toClose) {
             ipo.setStatus(IPOStatus.CLOSED);
             ipoRepository.save(ipo);
-            // Trigger allotment logic or notification here if needed
         }
+
+        // 3. Switch CLOSED -> OPEN (if dates were extended manually but status not
+        // updated, or simple correction)
+        List<IPO> toReopen = ipoRepository.findIPOsToReopen(now);
+        for (IPO ipo : toReopen) {
+            ipo.setStatus(IPOStatus.OPEN);
+            ipoRepository.save(ipo);
+        }
+    }
+
+    /**
+     * Checks current time against open/close dates and updates status if needed.
+     * Returns the updated (or unchanged) IPO entity.
+     */
+    private IPO checkAndSwitchStatus(IPO ipo) {
+        LocalDateTime now = LocalDateTime.now();
+        boolean changed = false;
+
+        if (ipo.getStatus() == IPOStatus.UPCOMING && now.isAfter(ipo.getOpenDate())) {
+            // Should be OPEN?
+            if (now.isBefore(ipo.getCloseDate())) {
+                ipo.setStatus(IPOStatus.OPEN);
+            } else {
+                // Already passed close date?
+                ipo.setStatus(IPOStatus.CLOSED);
+            }
+            changed = true;
+        } else if (ipo.getStatus() == IPOStatus.OPEN && now.isAfter(ipo.getCloseDate())) {
+            ipo.setStatus(IPOStatus.CLOSED);
+            changed = true;
+        } else if (ipo.getStatus() == IPOStatus.CLOSED && now.isAfter(ipo.getOpenDate())
+                && now.isBefore(ipo.getCloseDate())) {
+            // Dates are valid for OPEN, but it is CLOSED. Re-open it.
+            ipo.setStatus(IPOStatus.OPEN);
+            changed = true;
+        }
+
+        if (changed) {
+            return ipoRepository.save(ipo);
+        }
+        return ipo;
+    }
+
+    @Transactional
+    public IPODTO processAllotment(Long ipoId) {
+        IPO ipo = ipoRepository.findById(java.util.Objects.requireNonNull(ipoId))
+                .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + ipoId));
+
+        if (ipo.getStatus() != IPOStatus.CLOSED) {
+            throw new RuntimeException("IPO must be CLOSED to process allotment");
+        }
+
+        // Fetch all APPROVED applications using injected repository
+        List<com.fintech.finpro.entity.IPOApplication> approvedApps = applicationRepository
+                .findByIpoIdAndApplicationStatus(ipoId, com.fintech.finpro.enums.ApplicationStatus.APPROVED);
+
+        // Process each application
+        // For MVP: Full Allotment (Allot requested quantity)
+        // In real world: Logic for oversubscription
+        for (com.fintech.finpro.entity.IPOApplication app : approvedApps) {
+            try {
+                applicationService.allotShares(app.getId(), app.getQuantity());
+            } catch (Exception e) {
+                System.err.println("Failed to allot for application " + app.getId() + ": " + e.getMessage());
+                // Continue with others
+            }
+        }
+
+        ipo.setStatus(IPOStatus.ALLOTTED);
+        return mapToDTO(ipoRepository.save(ipo));
+    }
+
+    @Transactional
+    public IPODTO listIPO(Long ipoId) {
+        IPO ipo = ipoRepository.findById(java.util.Objects.requireNonNull(ipoId))
+                .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + ipoId));
+
+        if (ipo.getStatus() != IPOStatus.ALLOTTED) {
+            throw new RuntimeException("IPO must be ALLOTTED to be listed");
+        }
+
+        // Update IPO Status
+        ipo.setStatus(IPOStatus.LISTED);
+        ipo = ipoRepository.save(ipo);
+
+        // Activate Portfolios
+        List<com.fintech.finpro.entity.CustomerPortfolio> portfolios = customerPortfolioRepository.findByIpo(ipo);
+
+        for (com.fintech.finpro.entity.CustomerPortfolio p : portfolios) {
+            p.setStatus("ACTIVE");
+            customerPortfolioRepository.save(p);
+        }
+
+        return mapToDTO(ipo);
     }
 
     private IPODTO mapToDTO(IPO ipo) {

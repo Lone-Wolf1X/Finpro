@@ -35,16 +35,32 @@ export default function CustomerProfile() {
     const loadData = async (customerId: number) => {
         try {
             setLoading(true);
-            const [custRes, bankRes, ipoRes, activeIpoRes] = await Promise.all([
+            // Load customer and bank accounts first (critical data)
+            const [custRes, bankRes] = await Promise.all([
                 customerApi.getById(customerId),
-                bankAccountApi.getByCustomerId(customerId),
-                ipoApplicationApi.getByCustomerId(customerId),
-                ipoApi.getActive()
+                bankAccountApi.getByCustomerId(customerId)
             ]);
             setCustomer(custRes.data);
             setBankAccounts(bankRes.data);
-            setIpoApplications(ipoRes.data);
-            setActiveIpos(activeIpoRes.data);
+
+            // Load IPO data separately (non-critical, may fail)
+            // Load IPO Applications
+            try {
+                const ipoRes = await ipoApplicationApi.getByCustomerId(customerId);
+                setIpoApplications(ipoRes.data);
+            } catch (error) {
+                console.error('Failed to load IPO applications:', error);
+                setIpoApplications([]);
+            }
+
+            // Load Active IPOs
+            try {
+                const activeIpoRes = await ipoApi.getActive();
+                setActiveIpos(activeIpoRes.data);
+            } catch (error) {
+                console.error('Failed to load active IPOs:', error);
+                setActiveIpos([]);
+            }
         } catch (error) {
             console.error('Failed to load profile data:', error);
         } finally {
@@ -177,7 +193,7 @@ export default function CustomerProfile() {
     if (!customer) return <div className="p-8 text-center text-red-500">Customer not found</div>;
 
     return (
-        <div className="p-6 max-w-7xl mx-auto space-y-6">
+        <div className="p-6 w-full space-y-6">
             {/* Header */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-6">
                 <button onClick={() => navigate('/customers')} className="p-3 hover:bg-gray-100 rounded-xl transition-all border border-gray-100">
@@ -394,46 +410,62 @@ export default function CustomerProfile() {
                             {/* Open IPOs Section */}
                             {ipoChildTab === 'open_ipos' && (
                                 <div className="space-y-4">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {activeIpos.map(ipo => (
-                                            <div key={ipo.id} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div>
-                                                        <span className={`px-2 py-1 rounded-md text-xs font-bold uppercase tracking-wide ${ipo.status === 'OPEN' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-600'}`}>
-                                                            {ipo.status}
-                                                        </span>
-                                                        <h3 className="text-xl font-bold mt-2">{ipo.companyName}</h3>
-                                                        <p className="text-gray-500 text-sm font-medium">{ipo.symbol}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-2xl font-bold text-gray-800">रू {ipo.pricePerShare}</p>
-                                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Per Share</p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-2 gap-4 text-sm mb-6 bg-gray-50 p-4 rounded-xl">
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs uppercase tracking-wide font-bold">Issue Size</p>
-                                                        <p className="font-semibold">{ipo.issueSize.toLocaleString()} Units</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-gray-500 text-xs uppercase tracking-wide font-bold">Min Quantity</p>
-                                                        <p className="font-semibold">{ipo.minQuantity} Units</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-gray-500 text-xs uppercase tracking-wide font-bold">Closing Date</p>
-                                                        <p className="font-semibold text-red-500">{new Date(ipo.closeDate).toLocaleDateString()}</p>
-                                                    </div>
-                                                </div>
-
-                                                <button
-                                                    onClick={() => navigate(`/ipo-applications/new?customerId=${id}&ipoId=${ipo.id}`)}
-                                                    className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-blue-100 shadow-lg"
-                                                >
-                                                    Apply Now
-                                                </button>
-                                            </div>
-                                        ))}
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                        <table className="w-full text-left">
+                                            <thead className="bg-gray-50 border-b border-gray-100">
+                                                <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                    <th className="px-6 py-4">Company</th>
+                                                    <th className="px-6 py-4 text-center">Price</th>
+                                                    <th className="px-6 py-4 text-center">Min / Max</th>
+                                                    <th className="px-6 py-4 text-center">Closing Date</th>
+                                                    <th className="px-6 py-4 text-right">Action</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {activeIpos.map(ipo => (
+                                                    <tr key={ipo.id} className="hover:bg-gray-50/50 transition-all">
+                                                        <td className="px-6 py-4">
+                                                            <div>
+                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide mb-1 inline-block ${ipo.status === 'OPEN' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-600'}`}>
+                                                                    {ipo.status}
+                                                                </span>
+                                                                <h4 className="font-bold text-gray-900">{ipo.companyName}</h4>
+                                                                <p className="text-xs text-gray-500 font-medium">{ipo.symbol}</p>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <p className="font-mono font-bold text-gray-700">रू {ipo.pricePerShare}</p>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <p className="text-xs font-bold text-gray-600">
+                                                                {ipo.minQuantity} - {ipo.maxQuantity.toLocaleString()}
+                                                            </p>
+                                                            <p className="text-[10px] text-gray-400 uppercase">Units</p>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <p className="text-xs font-bold text-red-500">
+                                                                {new Date(ipo.closeDate).toLocaleDateString()}
+                                                            </p>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <button
+                                                                onClick={() => navigate(`/ipo-applications/new?customerId=${id}&ipoId=${ipo.id}`)}
+                                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all shadow-blue-100 shadow-md"
+                                                            >
+                                                                Apply
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {activeIpos.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={5} className="px-8 py-12 text-center text-gray-500 font-medium italic">
+                                                            No active IPOs available at the moment.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
                                     </div>
                                     {activeIpos.length === 0 && (
                                         <p className="text-center text-gray-500 font-medium py-12 bg-white rounded-2xl border border-dashed border-gray-200">
@@ -473,7 +505,18 @@ export default function CustomerProfile() {
                                                         </span>
                                                     </td>
                                                     <td className="px-8 py-5 text-right">
-                                                        <button className="text-blue-600 font-black text-[10px] uppercase hover:underline">Verify Result</button>
+                                                        <div className="flex items-center justify-end gap-3">
+                                                            {['PENDING', 'PENDING_VERIFICATION', 'REJECTED'].includes(app.applicationStatus) && (
+                                                                <button
+                                                                    onClick={() => navigate(`/ipo-applications/${app.id}/edit`)}
+                                                                    className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-all"
+                                                                    title="Edit Application"
+                                                                >
+                                                                    <Edit size={16} />
+                                                                </button>
+                                                            )}
+                                                            <button className="text-blue-600 font-black text-[10px] uppercase hover:underline">Verify Result</button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}

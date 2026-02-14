@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { ipoApplicationApi, ipoApi, customerApi, bankAccountApi } from '../../api/customerApi';
 import { Customer, IPO, BankAccount, CreateIPOApplicationRequest } from '../../types';
 
@@ -22,11 +22,16 @@ export default function IPOApplicationForm() {
     const [selectedIPO, setSelectedIPO] = useState<IPO | null>(null);
     const [totalAmount, setTotalAmount] = useState(0);
     const [loading, setLoading] = useState(false);
+    const { id } = useParams<{ id: string }>();
+    const isEdit = !!id;
 
     useEffect(() => {
         loadCustomers();
         loadIPOs();
-    }, []);
+        if (id) {
+            loadApplication();
+        }
+    }, [id]);
 
     useEffect(() => {
         if (formData.customerId) {
@@ -64,6 +69,25 @@ export default function IPOApplicationForm() {
             setIpos(response.data);
         } catch (error) {
             console.error('Failed to load IPOs:', error);
+        }
+    };
+
+    const loadApplication = async () => {
+        try {
+            setLoading(true);
+            const response = await ipoApplicationApi.getById(Number(id!));
+            const app = response.data;
+            setFormData({
+                customerId: app.customerId,
+                ipoId: app.ipoId,
+                bankAccountId: app.bankAccountId || 0,
+                quantity: app.quantity
+            });
+        } catch (error) {
+            console.error('Failed to load application:', error);
+            alert('Failed to load application details');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -108,9 +132,30 @@ export default function IPOApplicationForm() {
 
         try {
             setLoading(true);
-            await ipoApplicationApi.create(formData);
-            alert('IPO application submitted successfully!');
-            navigate('/ipo-applications');
+
+            // Get logged in user for makerId
+            const userStr = localStorage.getItem('user');
+            const user = userStr ? JSON.parse(userStr) : null;
+
+            const submitData = {
+                ...formData,
+                makerId: user?.role === 'MAKER' || user?.role === 'ADMIN' || user?.role === 'SUPERADMIN' ? user.id : undefined
+            };
+
+            if (isEdit) {
+                await ipoApplicationApi.update(Number(id), submitData);
+                alert('IPO application updated successfully!');
+            } else {
+                await ipoApplicationApi.create(submitData);
+                alert('IPO application submitted successfully!');
+            }
+
+            // Redirect back to customer profile if customerId exists
+            if (preselectedCustomerId || (isEdit && formData.customerId)) {
+                navigate(`/customers/${preselectedCustomerId || formData.customerId}`);
+            } else {
+                navigate('/ipo-applications');
+            }
         } catch (error: any) {
             alert(error.response?.data?.message || 'Failed to submit application');
         } finally {
@@ -127,7 +172,7 @@ export default function IPOApplicationForm() {
 
     return (
         <div className="p-6">
-            <div className="max-w-3xl mx-auto">
+            <div className="w-full">
                 <div className="flex items-center mb-6">
                     <button
                         onClick={() => navigate('/ipos')}
@@ -135,7 +180,7 @@ export default function IPOApplicationForm() {
                     >
                         ← Back
                     </button>
-                    <h1 className="text-2xl font-bold">Apply for IPO</h1>
+                    <h1 className="text-2xl font-bold">{isEdit ? 'Edit IPO Application' : 'Apply for IPO'}</h1>
                 </div>
 
                 <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
@@ -210,20 +255,79 @@ export default function IPOApplicationForm() {
                         <label className="block text-sm font-medium mb-2">
                             Quantity <span className="text-red-500">*</span>
                         </label>
-                        <input
-                            type="number"
-                            required
-                            min={selectedIPO?.minQuantity || 1}
-                            max={selectedIPO?.maxQuantity || 1000}
-                            value={formData.quantity || ''}
-                            onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
-                            className="w-full px-3 py-2 border rounded-lg"
-                        />
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const step = selectedIPO?.minQuantity || 10;
+                                    const newVal = (formData.quantity || 0) - step;
+                                    if (newVal >= (selectedIPO?.minQuantity || 1)) {
+                                        setFormData({ ...formData, quantity: newVal });
+                                    }
+                                }}
+                                className="p-3 bg-gray-100 rounded-lg hover:bg-gray-200 font-bold text-gray-600"
+                            >
+                                -
+                            </button>
+                            <input
+                                type="number"
+                                required
+                                min={selectedIPO?.minQuantity || 1}
+                                max={selectedIPO?.maxQuantity || 1000}
+                                value={formData.quantity || ''}
+                                onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
+                                className="w-full px-4 py-3 border rounded-xl font-mono text-lg font-bold text-center"
+                                placeholder="Enter Quantity"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const step = selectedIPO?.minQuantity || 10;
+                                    const newVal = (formData.quantity || 0) + step;
+                                    if (newVal <= (selectedIPO?.maxQuantity || 1000000)) {
+                                        setFormData({ ...formData, quantity: newVal });
+                                    }
+                                }}
+                                className="p-3 bg-gray-100 rounded-lg hover:bg-gray-200 font-bold text-gray-600"
+                            >
+                                +
+                            </button>
+                        </div>
                         {selectedIPO && (
-                            <p className="text-sm text-gray-600 mt-1">
-                                Min: {selectedIPO.minQuantity}, Max: {selectedIPO.maxQuantity}
-                            </p>
+                            <div className="flex flex-wrap gap-2 mt-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, quantity: selectedIPO.minQuantity })}
+                                    className="px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full hover:bg-blue-100"
+                                >
+                                    Min: {selectedIPO.minQuantity}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, quantity: selectedIPO.minQuantity * 2 })}
+                                    className="px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full hover:bg-blue-100"
+                                >
+                                    {selectedIPO.minQuantity * 2}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, quantity: selectedIPO.minQuantity * 5 })}
+                                    className="px-3 py-1 bg-blue-50 text-blue-600 text-xs font-bold rounded-full hover:bg-blue-100"
+                                >
+                                    {selectedIPO.minQuantity * 5}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormData({ ...formData, quantity: selectedIPO.maxQuantity })}
+                                    className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-bold rounded-full hover:bg-gray-200"
+                                >
+                                    Max: {selectedIPO.maxQuantity}
+                                </button>
+                            </div>
                         )}
+                        <p className="text-xs text-gray-500 mt-2 font-medium">
+                            Enter the number of units you want to apply for.
+                        </p>
                     </div>
 
                     {/* Bank Account Selection */}

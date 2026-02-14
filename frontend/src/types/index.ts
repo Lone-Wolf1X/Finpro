@@ -67,7 +67,7 @@ export type CustomerType = 'MAJOR' | 'MINOR';
 export type KycStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT' | 'RETURNED';
 export type AccountType = 'SAVINGS' | 'CURRENT' | 'FIXED_DEPOSIT';
 export type IPOStatus = 'UPCOMING' | 'OPEN' | 'CLOSED' | 'ALLOTTED' | 'LISTED';
-export type ApplicationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALLOTTED';
+export type ApplicationStatus = 'PENDING' | 'PENDING_VERIFICATION' | 'VERIFIED' | 'APPROVED' | 'REJECTED' | 'ALLOTTED';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'REFUNDED' | 'FAILED';
 
 export interface Customer {
@@ -102,6 +102,7 @@ export interface Customer {
     guardianSignaturePath?: string;
     createdAt: string;
     updatedAt: string;
+    initialDeposit?: number;
 }
 
 export interface CreateCustomerRequest {
@@ -114,6 +115,7 @@ export interface CreateCustomerRequest {
     contactNumber?: string;
     bankAccountNumber?: string;
     bankId: number;
+    initialDeposit?: number;
     address?: string;
     citizenshipNumber?: string;
     nidNumber?: string;
@@ -254,6 +256,7 @@ export interface CreateIPOApplicationRequest {
     ipoId: number;
     bankAccountId: number;
     quantity: number;
+    makerId?: number;
 }
 
 export interface DashboardStats {
@@ -320,4 +323,21 @@ export interface PendingTransaction {
     makerName?: string;
     createdAt: string;
     status: string;
+}
+
+export interface CustomerPortfolio {
+    id: number;
+    customerId: number;
+    customerName: string;
+    ipoId?: number;
+    ipoCompanyName?: string;
+    scripSymbol: string;
+    quantity: number;
+    purchasePrice: number;
+    totalCost: number;
+    currentValue?: number; // Calculated on frontend or backend?
+    profitLoss?: number;
+    holdingSince: string;
+    status: string;
+    isBonus: boolean;
 }

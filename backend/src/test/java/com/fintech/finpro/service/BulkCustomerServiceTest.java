@@ -20,6 +20,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 public class BulkCustomerServiceTest {
+    @Mock
+    private com.fintech.finpro.repository.BulkDepositRepository bulkDepositRepository;
+    @Mock
+    private com.fintech.finpro.repository.BulkDepositItemRepository bulkDepositItemRepository;
 
     @Mock
     private CustomerService customerService;

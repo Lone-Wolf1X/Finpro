@@ -16,11 +16,13 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
     java.util.Optional<Customer> findByCitizenshipNumber(String citizenshipNumber);
 
+    java.util.Optional<Customer> findByNidNumber(String nidNumber);
+
     List<Customer> findByKycStatus(String kycStatus);
 
     List<Customer> findByCustomerType(CustomerType customerType);
 
-    @Query("SELECT c FROM Customer c WHERE c.customerType = 'MAJOR' AND c.kycStatus = 'APPROVED'")
+    @Query("SELECT c FROM Customer c WHERE c.customerType = com.fintech.finpro.enums.CustomerType.MAJOR AND c.kycStatus = 'APPROVED'")
     List<Customer> findEligibleGuardians();
 
     @Query("SELECT c FROM Customer c WHERE c.guardian.id = :guardianId")

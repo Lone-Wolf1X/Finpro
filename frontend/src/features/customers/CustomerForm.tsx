@@ -22,6 +22,7 @@ export default function CustomerForm() {
         contactNumber: '',
         bankAccountNumber: '',
         bankId: 0,
+        initialDeposit: 0,
         address: '',
         citizenshipNumber: '',
         nidNumber: '',
@@ -166,16 +167,33 @@ export default function CustomerForm() {
 
         try {
             setLoading(true);
+
+            // Add skipGuardianKycCheck if it's a minor submission to avoid blocking on guardian status
+            const submitData = {
+                ...formData,
+                skipGuardianKycCheck: isMinor
+            };
+
             if (isEdit) {
-                await customerApi.update(Number(id), formData);
+                await customerApi.update(Number(id), submitData);
             } else {
-                await customerApi.create(formData);
+                await customerApi.create(submitData);
             }
             alert('Customer submitted successfully!');
             navigate('/customers');
         } catch (error: any) {
-            console.error("Submit Error", error);
-            alert(error.response?.data?.message || 'Failed to save customer');
+            console.error("Submit Error", error.response?.data);
+            const message = error.response?.data?.message || 'Failed to save customer';
+            const errors = error.response?.data?.errors;
+
+            if (errors && Array.isArray(errors)) {
+                alert(`${message}:\n${errors.join('\n')}`);
+            } else if (typeof errors === 'object') {
+                const errorDetails = Object.entries(errors).map(([field, msg]) => `${field}: ${msg}`).join('\n');
+                alert(`${message}:\n${errorDetails}`);
+            } else {
+                alert(message);
+            }
         } finally {
             setLoading(false);
         }
@@ -183,7 +201,7 @@ export default function CustomerForm() {
 
     return (
         <div className="p-6">
-            <div className="max-w-7xl mx-auto">
+            <div className="w-full">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">
                         <button
@@ -453,6 +471,7 @@ export default function CustomerForm() {
                                     <select
                                         required={isMinor}
                                         value={formData.guardianId || ''}
+                                        disabled={isEdit} // Lock guardian for existing minors
                                         onChange={(e) => {
                                             const selectedId = Number(e.target.value);
                                             const selectedGuardian = eligibleGuardians.find(g => g.id === selectedId);
@@ -462,7 +481,7 @@ export default function CustomerForm() {
                                                 guardianName: selectedGuardian?.fullName || ''
                                             });
                                         }}
-                                        className="w-full px-3 py-2 border rounded-lg"
+                                        className={`w-full px-3 py-2 border rounded-lg ${isEdit ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                                     >
                                         <option value="">-- Select Guardian --</option>
                                         {eligibleGuardians.map((guardian) => (
@@ -535,6 +554,22 @@ export default function CustomerForm() {
                                     className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-700 placeholder:text-gray-300"
                                     placeholder="Enter primary account number"
                                 />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 px-1">Initial Deposit (रू)</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={formData.initialDeposit || 0}
+                                    onChange={(e) => setFormData({ ...formData, initialDeposit: parseFloat(e.target.value) || 0 })}
+                                    className="w-full px-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-gray-700 placeholder:text-gray-300"
+                                    placeholder="0.00"
+                                />
+                                <p className="text-xs text-gray-500 mt-1 px-1">Optional: Initial deposit amount for this account</p>
                             </div>
                         </div>
 

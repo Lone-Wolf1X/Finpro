@@ -36,4 +36,8 @@ public class LedgerAccount extends com.fintech.finpro.entity.BaseEntity {
     @Column(length = 20)
     @Builder.Default
     private String status = "ACTIVE";
+
+    public String getAccountName() {
+        return this.accountName;
+    }
 }

@@ -1,0 +1,6 @@
+FirstName,LastName,Email,MobileNumber,DateOfBirth,Gender,Address,BankAccountNumber,CitizenshipNumber,AccountType,InitialDeposit,IsMinor,GuardianId,GuardianCitizenshipNumber,GuardianRelation
+Major,One,major.one@test.com,9800001001,1990-01-01,MALE,"Kathmandu, Nepal",9990001001,M1001,SAVINGS,1000.00,FALSE,,,
+Major,Two,major.two@test.com,9800001002,1992-05-05,FEMALE,"Pokhara, Nepal",9990001002,M1002,SAVINGS,2000.00,FALSE,,,
+Major,Three,major.three@test.com,9800001003,1985-12-12,MALE,"Lalitpur, Nepal",9990001003,M1003,SAVINGS,500.00,FALSE,,,
+Minor,One,minor.one@test.com,9800002001,2015-01-01,FEMALE,"Kathmandu, Nepal",9990002001,,SAVINGS,0.00,TRUE,,M1001,FATHER
+Minor,Two,minor.two@test.com,9800002002,2018-06-06,MALE,"Pokhara, Nepal",9990002002,,SAVINGS,0.00,TRUE,,M1002,MOTHER

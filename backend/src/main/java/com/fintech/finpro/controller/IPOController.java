@@ -94,4 +94,18 @@ public class IPOController {
         ipoService.checkAndSwitchStatus();
         return ResponseEntity.ok(Map.of("message", "IPO status check triggered successfully"));
     }
+
+    @PostMapping("/{id}/allot")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<IPODTO> allotIPO(@PathVariable Long id) {
+        IPODTO result = ipoService.processAllotment(id);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/{id}/list")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<IPODTO> listIPO(@PathVariable Long id) {
+        IPODTO result = ipoService.listIPO(id);
+        return ResponseEntity.ok(result);
+    }
 }

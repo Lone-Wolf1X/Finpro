@@ -54,8 +54,9 @@ public class CustomerCredentialService {
             credential.setPin(passwordEncoder.encode(dto.getPin()));
         }
 
-        CustomerCredential saved = java.util.Objects.requireNonNull(credentialRepository.save(credential));
-        return mapToDTO(saved);
+        // CustomerCredential saved =
+        // java.util.Objects.requireNonNull(credentialRepository.save(credential));
+        return mapToDTO(credentialRepository.save(credential));
     }
 
     @Transactional

@@ -11,4 +11,6 @@ public interface CustomerPortfolioRepository extends JpaRepository<CustomerPortf
     List<CustomerPortfolio> findByCustomerId(Long customerId);
 
     List<CustomerPortfolio> findByCustomerIdAndScripSymbol(Long customerId, String scripSymbol);
+
+    List<CustomerPortfolio> findByIpo(com.fintech.finpro.entity.IPO ipo);
 }

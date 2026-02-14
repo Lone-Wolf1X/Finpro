@@ -27,6 +27,9 @@ public class BulkCustomerCSVRecord {
     @CsvBindByName(column = "citizenshipNumber")
     private String citizenshipNumber;
 
+    @CsvBindByName(column = "nidNumber")
+    private String nidNumber;
+
     @CsvBindByName(column = "address", required = true)
     private String address;
 
@@ -44,7 +47,7 @@ public class BulkCustomerCSVRecord {
     private Boolean isMinor;
 
     @CsvBindByName(column = "guardianId")
-    private Long guardianId;
+    private String guardianId; // Can be numeric ID or citizenship number
 
     @CsvBindByName(column = "guardianCitizenshipNumber")
     private String guardianCitizenshipNumber;

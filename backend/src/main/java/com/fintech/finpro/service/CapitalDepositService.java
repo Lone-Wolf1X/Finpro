@@ -46,10 +46,10 @@ public class CapitalDepositService {
                 .isBulk(false)
                 .build();
 
-        PendingTransaction saved = pendingTransactionRepository.save(transaction);
-        log.info("Created pending capital deposit with ID: {}", saved.getId());
+        // PendingTransaction saved = pendingTransactionRepository.save(transaction);
+        // log.info("Created pending capital deposit with ID: {}", saved.getId());
 
-        return convertToDTO(saved);
+        return convertToDTO(pendingTransactionRepository.save(transaction));
     }
 
     /**
@@ -76,10 +76,10 @@ public class CapitalDepositService {
                 .isBulk(false)
                 .build();
 
-        PendingTransaction saved = pendingTransactionRepository.save(transaction);
-        log.info("Created pending capital withdrawal with ID: {}", saved.getId());
+        // PendingTransaction saved = pendingTransactionRepository.save(transaction);
+        // log.info("Created pending capital withdrawal with ID: {}", saved.getId());
 
-        return convertToDTO(saved);
+        return convertToDTO(pendingTransactionRepository.save(transaction));
     }
 
     /**
@@ -103,7 +103,8 @@ public class CapitalDepositService {
     public PendingTransactionDTO approveDeposit(Long transactionId, Long checkerId) {
         log.info("Approving capital transaction {} by checker {}", transactionId, checkerId);
 
-        PendingTransaction transaction = pendingTransactionRepository.findById(transactionId)
+        PendingTransaction transaction = pendingTransactionRepository
+                .findById(java.util.Objects.requireNonNull(transactionId))
                 .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + transactionId));
 
         if (!transaction.isPending()) {
@@ -153,7 +154,8 @@ public class CapitalDepositService {
     public PendingTransactionDTO rejectDeposit(Long transactionId, Long checkerId, String reason) {
         log.info("Rejecting capital deposit {} by checker {}", transactionId, checkerId);
 
-        PendingTransaction transaction = pendingTransactionRepository.findById(transactionId)
+        PendingTransaction transaction = pendingTransactionRepository
+                .findById(java.util.Objects.requireNonNull(transactionId))
                 .orElseThrow(() -> new RuntimeException("Transaction not found with id: " + transactionId));
 
         if (!transaction.isPending()) {

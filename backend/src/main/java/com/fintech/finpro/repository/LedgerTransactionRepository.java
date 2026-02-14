@@ -30,13 +30,15 @@ public interface LedgerTransactionRepository extends JpaRepository<LedgerTransac
         Long getNextTransactionSequence();
 
         @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(CASE " +
-                        "WHEN lt.transactionType IN ('DEPOSIT', 'REVERSAL', 'SETTLEMENT') THEN lt.amount " +
-                        "WHEN lt.transactionType IN ('WITHDRAWAL', 'FEE', 'TRANSFER', 'ALLOTMENT') THEN -lt.amount " +
+                        "WHEN lt.transactionType IN :creditTypes THEN lt.amount " +
+                        "WHEN lt.transactionType IN :debitTypes THEN -lt.amount " +
                         "ELSE 0 END), 0) " +
                         "FROM LedgerTransaction lt WHERE lt.customerBankAccount.id = :accountId AND lt.createdAt < :beforeDate AND lt.status = 'COMPLETED'")
         java.math.BigDecimal getOpeningBalance(
                         @org.springframework.data.repository.query.Param("accountId") Long accountId,
-                        @org.springframework.data.repository.query.Param("beforeDate") java.time.LocalDateTime beforeDate);
+                        @org.springframework.data.repository.query.Param("beforeDate") java.time.LocalDateTime beforeDate,
+                        @org.springframework.data.repository.query.Param("creditTypes") List<com.fintech.finpro.enums.LedgerTransactionType> creditTypes,
+                        @org.springframework.data.repository.query.Param("debitTypes") List<com.fintech.finpro.enums.LedgerTransactionType> debitTypes);
 
         @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(CASE " +
                         "WHEN lt.creditAccount.id = :accountId THEN lt.amount " +
@@ -46,4 +48,9 @@ public interface LedgerTransactionRepository extends JpaRepository<LedgerTransac
         java.math.BigDecimal getLedgerOpeningBalance(
                         @org.springframework.data.repository.query.Param("accountId") Long accountId,
                         @org.springframework.data.repository.query.Param("beforeDate") java.time.LocalDateTime beforeDate);
+
+        List<LedgerTransaction> findByCustomerId(Long customerId);
+
+        List<LedgerTransaction> findByDebitAccountIdInOrCreditAccountIdIn(List<Long> debitAccountIds,
+                        List<Long> creditAccountIds);
 }

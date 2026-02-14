@@ -93,7 +93,7 @@ export default function BulkDepositPage() {
     };
 
     return (
-        <div className="p-6 max-w-6xl mx-auto space-y-6">
+        <div className="p-6 w-full space-y-6">
             <div className="flex items-center justify-between bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                 <div>
                     <h1 className="text-3xl font-extrabold text-gray-900">Bulk Deposit (Maker)</h1>

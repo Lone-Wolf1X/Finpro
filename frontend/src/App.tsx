@@ -15,9 +15,11 @@ import KYCAlignment from './features/admin/KYCAlignment';
 import CustomerList from './features/customers/CustomerList';
 import CustomerForm from './features/customers/CustomerForm';
 import IPOList from './features/customers/IPOList';
+import IPODetails from './features/customers/IPODetails';
 import IPOApplicationForm from './features/customers/IPOApplicationForm';
 import IPOApplicationAdminList from './features/customers/IPOApplicationAdminList';
 import IPOForm from './features/ipos/IPOForm';
+import IPOManagement from './features/ipos/IPOManagement';
 import CustomerProfile from './features/customers/CustomerProfile';
 import BulkCustomerUpload from './features/customers/BulkCustomerUpload';
 import BulkDepositPage from './features/customers/BulkDepositPage';
@@ -26,6 +28,8 @@ import BankList from './features/banks/BankList';
 import BankAccountDetails from './features/banking/BankAccountDetails';
 import BankOperations from './features/banking/BankOperations';
 import CapitalDepositForm from './features/admin/CapitalDepositForm';
+import PortfolioList from './features/customers/PortfolioList';
+import SecondaryMarketBuy from './features/customers/SecondaryMarketBuy';
 import './index.css';
 
 function App() {
@@ -107,8 +111,24 @@ function App() {
             <Route
               path="ipos"
               element={
+                <ProtectedRoute requiredRole={['ADMIN', 'SUPERADMIN']}>
+                  <IPOManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="ipos/customer-view"
+              element={
                 <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN']}>
                   <IPOList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="ipos/:id"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN']}>
+                  <IPODetails />
                 </ProtectedRoute>
               }
             />
@@ -138,6 +158,14 @@ function App() {
             />
             <Route
               path="ipo-applications/new"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
+                  <IPOApplicationForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="ipo-applications/:id/edit"
               element={
                 <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
                   <IPOApplicationForm />
@@ -229,6 +257,22 @@ function App() {
               element={
                 <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
                   <CapitalDepositForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="portfolio"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN', 'INVESTOR']}>
+                  <PortfolioList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="secondary-market/buy"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN', 'INVESTOR']}>
+                  <SecondaryMarketBuy />
                 </ProtectedRoute>
               }
             />

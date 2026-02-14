@@ -4,7 +4,8 @@
     "description": "Finpro - Financial Management System by Next Gen Innovations Nepal",
     "scripts": {
         "predev": "powershell -ExecutionPolicy Bypass -File ./clean-ports.ps1",
-        "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" --names \"BACKEND,FRONTEND\" --prefix-colors \"bgBlue.bold,bgMagenta.bold\"",
+        "dev": "npm run dev:concurrent",
+        "dev:concurrent": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" --names \"BACKEND,FRONTEND\" --prefix-colors \"bgBlue.bold,bgMagenta.bold\"",
         "dev:backend": "cd backend && mvn spring-boot:run",
         "dev:frontend": "cd frontend && npm run dev",
         "start": "powershell -ExecutionPolicy Bypass -File ./start.ps1",

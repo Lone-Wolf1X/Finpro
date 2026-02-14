@@ -18,4 +18,6 @@ public interface LedgerAccountRepository extends JpaRepository<LedgerAccount, Lo
     List<LedgerAccount> findByAccountType(LedgerAccountType accountType);
 
     Optional<LedgerAccount> findByAccountName(String accountName);
+
+    List<LedgerAccount> findByOwnerId(Long ownerId);
 }

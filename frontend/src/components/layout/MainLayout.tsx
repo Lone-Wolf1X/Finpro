@@ -10,7 +10,9 @@ import {
     Menu,
     Landmark,
     Wallet,
-    CheckSquare
+    CheckSquare,
+    Briefcase,
+    TrendingUp
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
@@ -80,7 +82,9 @@ const MainLayout = () => {
         { icon: Landmark, label: 'Banking Operations', path: '/banking/operations', roles: ['MAKER', 'ADMIN', 'SUPERADMIN'] },
         { icon: CheckSquare, label: 'Verify Transactions', path: '/transactions/verify', roles: ['CHECKER', 'ADMIN', 'SUPERADMIN'], badge: pendingTxCount },
         { icon: CheckSquare, label: 'IPO Applications', path: '/ipo-applications', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER'] },
-        { icon: LayoutDashboard, label: 'IPO Listings', path: '/ipos', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER'] },
+        { icon: LayoutDashboard, label: 'IPO Listings', path: '/ipos', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER', 'INVESTOR'] },
+        { icon: Briefcase, label: 'My Portfolio', path: '/portfolio', roles: ['SUPERADMIN', 'ADMIN', 'INVESTOR', 'MAKER'] },
+        { icon: TrendingUp, label: 'Buy Shares', path: '/secondary-market/buy', roles: ['SUPERADMIN', 'ADMIN', 'INVESTOR', 'MAKER'] },
         { icon: Landmark, label: 'Manage Banks', path: '/banks', roles: ['SUPERADMIN', 'ADMIN'] },
         { icon: LayoutDashboard, label: 'System Accounts', path: '/admin/system-accounts', roles: ['SUPERADMIN', 'ADMIN'] },
         { icon: Wallet, label: 'Bulk Deposit', path: '/bulk-deposits/create', roles: ['SUPERADMIN', 'ADMIN', 'MAKER'] },
@@ -113,10 +117,42 @@ const MainLayout = () => {
 
                     <div className="flex items-center gap-4">
                         <div className="flex items-center gap-3">
+                            {/* Notification Bell - First */}
+                            {user && user.role !== 'INVESTOR' && (
+                                <div className="relative">
+                                    <button
+                                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative"
+                                        title="Notifications"
+                                    >
+                                        <svg
+                                            className="w-6 h-6 text-gray-600"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={2}
+                                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                                            />
+                                        </svg>
+                                        {(pendingKycCount + pendingTxCount) > 0 && (
+                                            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">
+                                                {pendingKycCount + pendingTxCount}
+                                            </span>
+                                        )}
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* User Name - Second */}
                             <div className="text-right hidden sm:block">
                                 <p className="text-sm font-medium text-gray-900">{user?.firstName} {user?.lastName}</p>
                                 <p className="text-xs text-gray-500">{user?.role}</p>
                             </div>
+
+                            {/* Avatar - Third */}
                             <div className="relative group cursor-pointer">
                                 <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-full flex items-center justify-center text-white font-medium shadow-md border-2 border-white">
                                     {user?.firstName?.charAt(0) || 'U'}
@@ -220,8 +256,8 @@ const MainLayout = () => {
                 )}
 
                 {/* Main Content */}
-                <main className="flex-1 overflow-auto bg-gray-50 p-4 lg:p-8 w-full relative">
-                    <div className="max-w-7xl mx-auto">
+                <main className="flex-1 overflow-auto bg-gray-50 p-4 lg:p-6 w-full relative">
+                    <div className="w-full">
                         <Outlet />
                     </div>
                 </main>

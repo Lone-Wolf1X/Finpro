@@ -40,11 +40,11 @@ public class BulkCustomerController {
 
     @GetMapping("/template")
     public ResponseEntity<byte[]> downloadTemplate() {
-        String csvContent = "firstName,lastName,email,mobileNumber,dateOfBirth,gender,address,citizenshipNumber,bankAccountNumber,accountType,initialDeposit,isMinor,guardianId,guardianRelation\n"
+        String csvContent = "firstName,lastName,email,mobileNumber,dateOfBirth,gender,address,citizenshipNumber,bankAccountNumber,accountType,initialDeposit,isMinor,guardianId,guardianCitizenshipNumber,guardianRelation\n"
                 +
-                "John,Doe,john.doe@example.com,9800000000,1990-01-01,MALE,Kathmandu 10 New Road,12345/67,SAV001,SAVINGS,0,FALSE,,\n"
+                "John,Doe,john.doe@example.com,9800000000,1990-01-01,MALE,Kathmandu 10 New Road,CIT-001,SAV001,SAVINGS,1000,FALSE,,,\n"
                 +
-                "Baby,Doe,,9800000001,2020-01-01,FEMALE,Kathmandu 10 New Road,,SAV002,SAVINGS,0,TRUE,1,FATHER";
+                "Baby,Doe,,9800000001,2020-01-01,FEMALE,Kathmandu 10 New Road,,SAV002,SAVINGS,500,TRUE,,CIT-001,FATHER";
 
         byte[] content = csvContent.getBytes();
 

@@ -19,7 +19,6 @@ public class SystemAccountService {
     private final SystemAccountRepository systemAccountRepository;
     private final com.fintech.finpro.repository.LedgerTransactionRepository ledgerTransactionRepository;
     private final com.fintech.finpro.repository.LedgerAccountRepository ledgerAccountRepository;
-    private final LedgerService ledgerService;
 
     /**
      * Initialize core system accounts if they don't exist
@@ -221,38 +220,21 @@ public class SystemAccountService {
                             "Ledger account not found for system account: " + account.getAccountName()));
         } else {
             // Core System Account
-            // Ledger accounts for core system accounts are created with specific names in
-            // LedgerService
-            // E.g. SystemAccount "Core Capital Account" -> LedgerAccount "Core Capital"?
-            // We need to handle this mapping or ensure names match.
-            // Current LedgerService creates "Core Capital", "Office Cash", etc.
-            // SystemAccountService creates "Core Capital Account".
-            // Let's try to match by exact name first, then strict mapping if needed.
-            // Based on previous analysis, createCapitalDepositEntry uses
-            // targetAccount.getAccountName()
-            // So the Ledger Account SHOULD have the same name as System Account if deposits
-            // were made.
-
-            Optional<com.fintech.finpro.entity.LedgerAccount> ledgerOpt = ledgerAccountRepository
-                    .findByAccountName(account.getAccountName());
-            if (ledgerOpt.isEmpty()) {
-                // Fallback: Dictionary mapping for known core accounts if names differ slightly
-                // But ideally we should have ensured they match.
-                // For now, if not found, we cannot generate a valid ledger statement.
-                // But to avoid blocking completely in case of mismatch, we might try the "Core
-                // Capital" vs "Core Capital Account" mapping.
-                if (account.getAccountCode().equals("CORE_CAPITAL")) {
-                    ledgerAccount = ledgerAccountRepository.findByAccountName("Core Capital")
-                            .orElseThrow(() -> new RuntimeException("Ledger account 'Core Capital' not found"));
-                } else if (account.getAccountCode().equals("EXPENSES_POOL")) {
-                    ledgerAccount = ledgerAccountRepository.findByAccountName("Office Expenses") // Mapping Assumption
-                            .orElseThrow(() -> new RuntimeException("Ledger account 'Office Expenses' not found"));
-                } else {
-                    throw new RuntimeException(
-                            "Ledger account not found for system account: " + account.getAccountName());
-                }
+            // Check account code first for known system accounts
+            if (account.getAccountCode().equals("CORE_CAPITAL")) {
+                ledgerAccount = ledgerAccountRepository.findByAccountName("Core Capital")
+                        .orElseThrow(() -> new RuntimeException("Ledger account 'Core Capital' not found"));
+            } else if (account.getAccountCode().equals("EXPENSES_POOL")) {
+                ledgerAccount = ledgerAccountRepository.findByAccountName("Office Expenses")
+                        .orElseThrow(() -> new RuntimeException("Ledger account 'Office Expenses' not found"));
+            } else if (account.getAccountCode().equals("SUBSCRIPTION_POOL")) {
+                ledgerAccount = ledgerAccountRepository.findByAccountName("Subscription Fees")
+                        .orElseThrow(() -> new RuntimeException("Ledger account 'Subscription Fees' not found"));
             } else {
-                ledgerAccount = ledgerOpt.get();
+                // Try exact name match for other accounts
+                ledgerAccount = ledgerAccountRepository.findByAccountName(account.getAccountName())
+                        .orElseThrow(() -> new RuntimeException(
+                                "Ledger account not found for system account: " + account.getAccountName()));
             }
         }
 

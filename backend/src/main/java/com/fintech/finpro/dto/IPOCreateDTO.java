@@ -38,11 +38,9 @@ public class IPOCreateDTO {
     private Integer maxQuantity;
 
     @NotNull(message = "Open date is required")
-    @FutureOrPresent(message = "Open date must be today or in the future")
     private java.time.LocalDateTime openDate;
 
     @NotNull(message = "Close date is required")
-    @Future(message = "Close date must be in the future")
     private java.time.LocalDateTime closeDate;
 
     private java.time.LocalDateTime allotmentDate;
