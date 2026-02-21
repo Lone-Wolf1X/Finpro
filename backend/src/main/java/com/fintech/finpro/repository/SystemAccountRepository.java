@@ -22,6 +22,11 @@ public interface SystemAccountRepository extends JpaRepository<SystemAccount, Lo
     Optional<SystemAccount> findByAccountNumber(String accountNumber);
 
     /**
+     * Find system account by account name
+     */
+    Optional<SystemAccount> findByAccountName(String accountName);
+
+    /**
      * Find all system accounts
      */
     List<SystemAccount> findByIsSystemAccountTrue();

@@ -1,23 +1,32 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { customerApi, bankAccountApi, ipoApplicationApi, ipoApi } from '../../api/customerApi';
-import { Customer, BankAccount, IPOApplication, KycStatus, IPO } from '../../types';
-import { User, CreditCard, PieChart, ArrowLeft, Edit, FileSignature, History, Wallet, Plus, TrendingUp } from 'lucide-react';
+import { customerApi, bankAccountApi, ipoApplicationApi, ipoApi, portfolioApi } from '../../api/customerApi';
+import { Customer, BankAccount, IPOApplication, KycStatus, IPO, CustomerPortfolio, PortfolioTransaction } from '../../types';
+import { User, CreditCard, PieChart, ArrowLeft, Edit, FileSignature, History, Wallet, Plus, TrendingUp, Trash2, FileText, XCircle, Briefcase, List } from 'lucide-react';
+import { useAppSelector } from '@/store/hooks';
+import toast from 'react-hot-toast';
 import CredentialsTab from './CredentialsTab';
 import AddBankAccountModal from './AddBankAccountModal';
 import EditableDetailsTab from './EditableDetailsTab';
+import TradingTab from './TradingTab';
+
 
 export default function CustomerProfile() {
+    const { user } = useAppSelector((state) => state.auth);
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
     const [ipoApplications, setIpoApplications] = useState<IPOApplication[]>([]);
     const [activeIpos, setActiveIpos] = useState<IPO[]>([]);
+    const [portfolio, setPortfolio] = useState<CustomerPortfolio[]>([]);
+    const [portfolioTransactions, setPortfolioTransactions] = useState<PortfolioTransaction[]>([]);
     const [activeTab, setActiveTab] = useState<'details' | 'bank' | 'credentials' | 'ipo'>('details');
-    const [ipoChildTab, setIpoChildTab] = useState<'portfolio' | 'applications' | 'open_ipos'>('applications');
+    const [ipoChildTab, setIpoChildTab] = useState<'portfolio' | 'applications' | 'open_ipos' | 'trading' | 'transactions'>('applications');
+
     const [showAddBankModal, setShowAddBankModal] = useState(false);
+    const [selectedAppReport, setSelectedAppReport] = useState<IPOApplication | null>(null);
     const [loading, setLoading] = useState(true);
     const [isEditing, setIsEditing] = useState(false);
     const [editedCustomer, setEditedCustomer] = useState<Customer | null>(null);
@@ -35,7 +44,6 @@ export default function CustomerProfile() {
     const loadData = async (customerId: number) => {
         try {
             setLoading(true);
-            // Load customer and bank accounts first (critical data)
             const [custRes, bankRes] = await Promise.all([
                 customerApi.getById(customerId),
                 bankAccountApi.getByCustomerId(customerId)
@@ -43,8 +51,6 @@ export default function CustomerProfile() {
             setCustomer(custRes.data);
             setBankAccounts(bankRes.data);
 
-            // Load IPO data separately (non-critical, may fail)
-            // Load IPO Applications
             try {
                 const ipoRes = await ipoApplicationApi.getByCustomerId(customerId);
                 setIpoApplications(ipoRes.data);
@@ -53,7 +59,6 @@ export default function CustomerProfile() {
                 setIpoApplications([]);
             }
 
-            // Load Active IPOs
             try {
                 const activeIpoRes = await ipoApi.getActive();
                 setActiveIpos(activeIpoRes.data);
@@ -61,12 +66,29 @@ export default function CustomerProfile() {
                 console.error('Failed to load active IPOs:', error);
                 setActiveIpos([]);
             }
+
+            try {
+                const portfolioRes = await portfolioApi.getByCustomerId(customerId);
+                setPortfolio(portfolioRes.data);
+            } catch (error) {
+                console.error('Failed to load portfolio:', error);
+                setPortfolio([]);
+            }
+
+            try {
+                const txRes = await portfolioApi.getTransactionsByCustomerId(customerId);
+                setPortfolioTransactions(txRes.data);
+            } catch (error) {
+                console.error('Failed to load portfolio transactions:', error);
+                setPortfolioTransactions([]);
+            }
         } catch (error) {
             console.error('Failed to load profile data:', error);
         } finally {
             setLoading(false);
         }
     };
+
 
     const getStatusBadge = (status: KycStatus) => {
         const colors = {
@@ -263,6 +285,7 @@ export default function CustomerProfile() {
                 {activeTab === 'details' && (
                     <EditableDetailsTab
                         customer={customer}
+                        bankAccounts={bankAccounts}
                         isEditing={isEditing}
                         editedCustomer={editedCustomer}
                         onEdit={handleEditToggle}
@@ -270,6 +293,16 @@ export default function CustomerProfile() {
                         onCancel={handleCancelEdit}
                         onChange={handleFieldChange}
                         onFileUpload={handleFileUpload}
+                        onSetPrimaryAccount={async (accountId) => {
+                            try {
+                                await bankAccountApi.setPrimary(accountId);
+                                toast.success('Primary settlement account updated');
+                                loadData(parseInt(id!));
+                            } catch (error) {
+                                console.error('Failed to set primary account:', error);
+                                toast.error('Failed to update primary account');
+                            }
+                        }}
                         uploadingPhoto={uploadingPhoto}
                         uploadingSignature={uploadingSignature}
                         uploadingGuardianPhoto={uploadingGuardianPhoto}
@@ -392,6 +425,8 @@ export default function CustomerProfile() {
                                     { id: 'open_ipos', label: 'Open IPOs', icon: TrendingUp },
                                     { id: 'applications', label: 'Applications & ASBA', icon: History },
                                     { id: 'portfolio', label: 'My Portfolio', icon: Wallet },
+                                    { id: 'trading', label: 'Trade Shares', icon: Briefcase },
+                                    { id: 'transactions', label: 'Transactions', icon: List },
                                 ].map((tab) => (
                                     <button
                                         key={tab.id}
@@ -407,7 +442,67 @@ export default function CustomerProfile() {
                                 ))}
                             </div>
 
+                            {/* Portfolio Transactions Section */}
+                            {ipoChildTab === 'transactions' && (
+                                <div className="space-y-4">
+                                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                        <table className="w-full text-left">
+                                            <thead className="bg-gray-50 border-b border-gray-100">
+                                                <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                    <th className="px-6 py-4">Date</th>
+                                                    <th className="px-6 py-4">Symbol</th>
+                                                    <th className="px-6 py-4 text-center">Type</th>
+                                                    <th className="px-6 py-4 text-center">Quantity</th>
+                                                    <th className="px-6 py-4 text-center">Price</th>
+                                                    <th className="px-6 py-4 text-center">Fees</th>
+                                                    <th className="px-6 py-4 text-right">Net Amount</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-50">
+                                                {portfolioTransactions.map((tx) => (
+                                                    <tr key={tx.id} className="hover:bg-gray-50/50 transition-all font-medium text-xs">
+                                                        <td className="px-6 py-4 text-gray-500">
+                                                            {new Date(tx.transactionDate).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="px-6 py-4 font-bold text-gray-800">{tx.scripSymbol}</td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${tx.transactionType === 'BUY' ? 'bg-green-50 text-green-700' :
+                                                                tx.transactionType === 'SELL' ? 'bg-red-50 text-red-700' :
+                                                                    tx.transactionType === 'ALLOTMENT' ? 'bg-blue-50 text-blue-700' :
+                                                                        'bg-purple-50 text-purple-700'
+                                                                }`}>
+                                                                {tx.transactionType}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center font-mono font-bold">{tx.quantity}</td>
+                                                        <td className="px-6 py-4 text-center">रू {tx.pricePerShare.toLocaleString()}</td>
+                                                        <td className="px-6 py-4 text-center font-mono text-gray-500">रू {tx.transactionFee?.toLocaleString() || '0'}</td>
+                                                        <td className="px-6 py-4 text-right font-mono font-bold text-blue-600">
+                                                            रू {(tx.transactionType === 'BUY' ? (tx.totalAmount + (tx.transactionFee || 0)) : (tx.totalAmount - (tx.transactionFee || 0))).toLocaleString()}
+                                                        </td>
+                                                    </tr>
+
+                                                ))}
+                                                {portfolioTransactions.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={7} className="px-6 py-10 text-center text-gray-400 italic">No transactions found.</td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Trading Section */}
+                            {ipoChildTab === 'trading' && (
+                                <div className="space-y-4">
+                                    <TradingTab customerId={parseInt(id!)} />
+                                </div>
+                            )}
+
                             {/* Open IPOs Section */}
+
                             {ipoChildTab === 'open_ipos' && (
                                 <div className="space-y-4">
                                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -448,12 +543,44 @@ export default function CustomerProfile() {
                                                             </p>
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
-                                                            <button
-                                                                onClick={() => navigate(`/ipo-applications/new?customerId=${id}&ipoId=${ipo.id}`)}
-                                                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all shadow-blue-100 shadow-md"
-                                                            >
-                                                                Apply
-                                                            </button>
+                                                            {(() => {
+                                                                const app = ipoApplications.find(a => a.ipoId === ipo.id);
+                                                                if (!app) {
+                                                                    return (
+                                                                        <button
+                                                                            onClick={() => navigate(`/ipo-applications/new?customerId=${id}&ipoId=${ipo.id}`)}
+                                                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-all shadow-blue-100 shadow-md flex items-center justify-center gap-2"
+                                                                        >
+                                                                            <Plus size={14} />
+                                                                            Apply
+                                                                        </button>
+                                                                    );
+                                                                }
+
+                                                                if (['PENDING_VERIFICATION', 'REJECTED'].includes(app.applicationStatus)) {
+                                                                    return (
+                                                                        <button
+                                                                            onClick={() => navigate(`/ipo-applications/${app.id}/edit`)}
+                                                                            className="px-4 py-2 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600 transition-all shadow-orange-100 shadow-md flex items-center justify-center gap-2"
+                                                                        >
+                                                                            <Edit size={14} />
+                                                                            Edit
+                                                                        </button>
+                                                                    );
+                                                                }
+
+                                                                return (
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setSelectedAppReport(app);
+                                                                        }}
+                                                                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-all shadow-green-100 shadow-md flex items-center justify-center gap-2"
+                                                                    >
+                                                                        <FileText size={14} />
+                                                                        Report
+                                                                    </button>
+                                                                );
+                                                            })()}
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -497,16 +624,21 @@ export default function CustomerProfile() {
                                                     <td className="px-8 py-5 text-center font-mono font-bold text-gray-600">{app.quantity}</td>
                                                     <td className="px-8 py-5 text-center font-mono font-bold text-gray-700">रू {app.amount.toLocaleString()}</td>
                                                     <td className="px-8 py-5 text-center">
-                                                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest ${app.applicationStatus === 'APPROVED' ? 'bg-green-50 text-green-700' :
-                                                            app.applicationStatus === 'REJECTED' ? 'bg-red-50 text-red-700' :
-                                                                'bg-orange-50 text-orange-700'
+                                                        <span className={`px-3 py-1 rounded-full text-[10px] font-extrabold tracking-widest ${app.allotmentStatus === 'ALLOTTED' ? 'bg-green-100 text-green-700' :
+                                                            app.allotmentStatus === 'NOT_ALLOTTED' ? 'bg-red-100 text-red-700' :
+                                                                app.applicationStatus === 'APPROVED' ? 'bg-green-50 text-emerald-600' :
+                                                                    app.applicationStatus === 'REJECTED' ? 'bg-red-50 text-red-700' :
+                                                                        'bg-orange-50 text-orange-700'
                                                             }`}>
-                                                            {app.applicationStatus}
+                                                            {app.allotmentStatus === 'ALLOTTED' ? 'ALLOTTED' :
+                                                                app.allotmentStatus === 'NOT_ALLOTTED' ? 'NOT ALLOTTED' :
+                                                                    app.applicationStatus}
                                                         </span>
                                                     </td>
                                                     <td className="px-8 py-5 text-right">
                                                         <div className="flex items-center justify-end gap-3">
-                                                            {['PENDING', 'PENDING_VERIFICATION', 'REJECTED'].includes(app.applicationStatus) && (
+                                                            {/* Only allow edit if PENDING_VERIFICATION or REJECTED */}
+                                                            {['PENDING_VERIFICATION', 'REJECTED'].includes(app.applicationStatus) && (
                                                                 <button
                                                                     onClick={() => navigate(`/ipo-applications/${app.id}/edit`)}
                                                                     className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-all"
@@ -515,7 +647,32 @@ export default function CustomerProfile() {
                                                                     <Edit size={16} />
                                                                 </button>
                                                             )}
-                                                            <button className="text-blue-600 font-black text-[10px] uppercase hover:underline">Verify Result</button>
+                                                            {/* Only allow delete for Admin/Checker roles */}
+                                                            {['ADMIN', 'SUPERADMIN', 'CHECKER'].includes(user?.role || '') && (
+                                                                <button
+                                                                    onClick={async () => {
+                                                                        if (window.confirm('Are you sure you want to delete this application? Funds held will be released.')) {
+                                                                            try {
+                                                                                await ipoApplicationApi.delete(app.id);
+                                                                                toast.success('Application deleted');
+                                                                                loadData(parseInt(id!));
+                                                                            } catch (error) {
+                                                                                toast.error('Failed to delete application');
+                                                                            }
+                                                                        }
+                                                                    }}
+                                                                    className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-all"
+                                                                    title="Delete Application"
+                                                                >
+                                                                    <Trash2 size={16} />
+                                                                </button>
+                                                            )}
+                                                            <button
+                                                                onClick={() => setSelectedAppReport(app)}
+                                                                className="text-blue-600 font-black text-[10px] uppercase hover:underline"
+                                                            >
+                                                                View Result
+                                                            </button>
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -531,12 +688,61 @@ export default function CustomerProfile() {
                             )}
 
                             {ipoChildTab === 'portfolio' && (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    <p className="text-gray-500 font-bold italic col-span-3 text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
-                                        No shares allotted yet. Apply for upcoming IPOs!
-                                    </p>
+                                <div className="space-y-4">
+                                    {portfolio.length === 0 ? (
+                                        <div className="text-center py-20 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                                <Briefcase className="text-gray-300" />
+                                            </div>
+                                            <p className="text-gray-500 font-bold italic">No shares allotted yet.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                            <table className="w-full text-left">
+                                                <thead className="bg-gray-50 border-b border-gray-100">
+                                                    <tr className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                                                        <th className="px-8 py-4">Scrip</th>
+                                                        <th className="px-8 py-4 text-center">Current Balance</th>
+                                                        <th className="px-8 py-4 text-center">Last Closing Price</th>
+                                                        <th className="px-8 py-4 text-center">Value As Of LTP</th>
+                                                        <th className="px-8 py-4 text-center">Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {portfolio.map((item) => (
+                                                        <tr key={item.id} className="hover:bg-gray-50/50 transition-all">
+                                                            <td className="px-8 py-5">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center font-bold text-gray-500">
+                                                                        {item.scripSymbol.charAt(0)}
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="font-bold text-gray-800">{item.scripSymbol}</p>
+                                                                        <p className="text-xs text-gray-400 font-medium">{item.ipoCompanyName || 'Secondary Market'}</p>
+                                                                    </div>
+                                                                </div>
+                                                            </td>
+                                                            <td className="px-8 py-5 text-center font-bold text-gray-700">{item.quantity}</td>
+                                                            <td className="px-8 py-5 text-center font-mono text-gray-600">
+                                                                {new Intl.NumberFormat('en-NP', { style: 'currency', currency: 'NPR' }).format(item.currentPrice || item.purchasePrice)}
+                                                            </td>
+                                                            <td className="px-8 py-5 text-center font-mono font-bold text-gray-800">
+                                                                {new Intl.NumberFormat('en-NP', { style: 'currency', currency: 'NPR' }).format(item.currentValue || item.totalCost)}
+                                                            </td>
+                                                            <td className="px-8 py-5 text-center">
+                                                                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-lg text-[10px] font-black uppercase tracking-widest">
+                                                                    {item.status}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
                                 </div>
                             )}
+
                         </div>
                     )
                 }
@@ -555,6 +761,87 @@ export default function CustomerProfile() {
                     />
                 )
             }
+
+            {/* Application Report Modal */}
+            {selectedAppReport && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+                        <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-gray-50">
+                            <div>
+                                <h3 className="text-xl font-black text-gray-900">IPO Application Report</h3>
+                                <p className="text-xs font-bold text-primary-500 uppercase tracking-widest mt-1">
+                                    APP #{selectedAppReport.applicationNumber || selectedAppReport.id}
+                                </p>
+                            </div>
+                            <button onClick={() => setSelectedAppReport(null)} className="text-gray-400 hover:text-gray-600">
+                                <XCircle size={24} />
+                            </button>
+                        </div>
+                        <div className="p-8 space-y-6">
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Company</p>
+                                    <p className="font-extrabold text-gray-800">{selectedAppReport.ipoCompanyName}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</p>
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${selectedAppReport.allotmentStatus === 'ALLOTTED' ? 'bg-green-100 text-green-700' :
+                                        selectedAppReport.allotmentStatus === 'NOT_ALLOTTED' ? 'bg-red-100 text-red-700' :
+                                            selectedAppReport.applicationStatus === 'APPROVED' ? 'bg-green-50 text-emerald-600' :
+                                                selectedAppReport.applicationStatus === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                                    'bg-blue-100 text-blue-700'
+                                        }`}>
+                                        {selectedAppReport.allotmentStatus === 'ALLOTTED' ? 'ALLOTTED' :
+                                            selectedAppReport.allotmentStatus === 'NOT_ALLOTTED' ? 'NOT ALLOTTED' :
+                                                selectedAppReport.applicationStatus}
+                                    </span>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Applied Quantity</p>
+                                    <p className="font-bold text-gray-700 font-mono">{selectedAppReport.quantity} Units</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Amount Held</p>
+                                    <p className="font-bold text-gray-700 font-mono">रू {selectedAppReport.amount?.toLocaleString()}</p>
+                                </div>
+                                {selectedAppReport.allotmentStatus === 'ALLOTTED' && (
+                                    <div className="col-span-2 p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center justify-between">
+                                        <div>
+                                            <p className="text-[10px] font-black text-green-600 uppercase tracking-widest">Allotted Quantity</p>
+                                            <p className="text-2xl font-black text-green-700">{selectedAppReport.allotmentQuantity} Units</p>
+                                        </div>
+                                        <TrendingUp className="text-green-500" size={32} />
+                                    </div>
+                                )}
+                                {selectedAppReport.applicationStatus === 'REJECTED' && (
+                                    <div className="col-span-2 p-4 bg-red-50 rounded-2xl border border-red-100">
+                                        <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-1">Rejection Reason</p>
+                                        <p className="text-sm font-bold text-red-700">{selectedAppReport.rejectionReason || 'No reason provided.'}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="pt-6 border-t border-gray-50 flex items-center justify-between">
+                                <div className="text-left">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase">Bank Account</p>
+                                    <p className="text-xs font-bold text-gray-600">{selectedAppReport.bankAccountNumber || 'N/A'}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase">Applied date</p>
+                                    <p className="text-xs font-bold text-gray-600">{new Date(selectedAppReport.appliedAt).toLocaleString()}</p>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={() => setSelectedAppReport(null)}
+                                className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black hover:bg-gray-800 transition-all shadow-lg"
+                            >
+                                Close Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

@@ -192,8 +192,8 @@ export default function BankOperations() {
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
-                            // Navigate to System Account Details (Admin view)
-                            navigate(`/admin/system-accounts/${acc.id}`);
+                            // Navigate to System Account Details (Banking view)
+                            navigate(`/banking/system-accounts/${acc.id}`);
                         }}
                         className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors text-xs font-bold uppercase tracking-wide"
                     >
@@ -276,7 +276,7 @@ export default function BankOperations() {
                     if (activeTab === 'CUSTOMER') {
                         navigate(`/banking/accounts/${item.id}`);
                     } else {
-                        navigate(`/admin/system-accounts/${item.id}`);
+                        navigate(`/banking/system-accounts/${item.id}`);
                     }
                 }}
             />

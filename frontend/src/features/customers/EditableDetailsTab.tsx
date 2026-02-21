@@ -1,10 +1,11 @@
 // Helper component for editable Details tab
 import React from 'react';
-import { Customer } from '../../types';
-import { User, Edit, FileSignature, Save, X, Upload } from 'lucide-react';
+import { Customer, BankAccount } from '../../types';
+import { User, Edit, FileSignature, Save, X, Upload, Briefcase } from 'lucide-react';
 
 interface EditableDetailsTabProps {
     customer: Customer;
+    bankAccounts: BankAccount[];
     isEditing: boolean;
     editedCustomer: Customer | null;
     onEdit: () => void;
@@ -12,6 +13,7 @@ interface EditableDetailsTabProps {
     onCancel: () => void;
     onChange: (field: keyof Customer, value: any) => void;
     onFileUpload: (file: File, type: 'photo' | 'signature' | 'guardian-photo' | 'guardian-signature') => void;
+    onSetPrimaryAccount: (accountId: number) => void;
     uploadingPhoto: boolean;
     uploadingSignature: boolean;
     uploadingGuardianPhoto: boolean;
@@ -20,6 +22,7 @@ interface EditableDetailsTabProps {
 
 const EditableDetailsTab: React.FC<EditableDetailsTabProps> = ({
     customer,
+    bankAccounts,
     isEditing,
     editedCustomer,
     onEdit,
@@ -27,6 +30,7 @@ const EditableDetailsTab: React.FC<EditableDetailsTabProps> = ({
     onCancel,
     onChange,
     onFileUpload,
+    onSetPrimaryAccount,
     uploadingPhoto,
     uploadingSignature,
     uploadingGuardianPhoto,
@@ -349,6 +353,47 @@ const EditableDetailsTab: React.FC<EditableDetailsTabProps> = ({
                     </div>
                 </div>
             )}
+
+            {/* Settlement Accounts Section */}
+            <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2 mb-6 border-b pb-4">
+                    <Briefcase size={20} className="text-green-600" /> Settlement Accounts
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">Select the primary bank account for trade settlements and payouts.</p>
+
+                <div className="grid gap-4">
+                    {bankAccounts.map(account => (
+                        <div key={account.id} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${account.isPrimary ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-white border-gray-100 hover:border-blue-200'}`}>
+                            <div className="flex items-center gap-4">
+                                <div className={`p-3 rounded-xl ${account.isPrimary ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-500'}`}>
+                                    <Briefcase size={20} />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-gray-800">{account.bankName}</p>
+                                    <p className="text-xs text-gray-500 font-mono">{account.accountNumber}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {account.isPrimary ? (
+                                    <span className="px-3 py-1 bg-green-200 text-green-800 text-[10px] font-black uppercase tracking-widest rounded-full">
+                                        Primary Settlement
+                                    </span>
+                                ) : (
+                                    <button
+                                        onClick={() => onSetPrimaryAccount(account.id)}
+                                        className="px-4 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all"
+                                    >
+                                        Set as Primary
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                    {bankAccounts.length === 0 && (
+                        <div className="text-center py-6 text-gray-400 italic font-medium">No bank accounts linked.</div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 };

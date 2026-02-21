@@ -59,6 +59,17 @@ public class Tenant extends BaseEntity {
     @Column(length = 20)
     private String status; // ACTIVE, INACTIVE, SUSPENDED
 
+    // Billing
+    @Column(name = "billing_cycle", length = 20)
+    private String billingCycle; // MONTHLY, YEARLY
+
+    @Column(name = "next_billing_date")
+    private LocalDateTime nextBillingDate;
+
+    @Column(name = "auto_renew")
+    @Builder.Default
+    private Boolean autoRenew = true;
+
     @PrePersist
     protected void onCreate() {
         if (subscriptionPlan == null) {

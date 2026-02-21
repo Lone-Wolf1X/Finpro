@@ -51,9 +51,16 @@ public class IPOController {
 
     @GetMapping("/active")
     @org.springframework.security.access.prepost.PreAuthorize("isAuthenticated()")
-    public ResponseEntity<List<IPODTO>> getActiveIPOs() {
-        List<IPODTO> ipos = ipoService.getActiveIPOs();
-        return ResponseEntity.ok(ipos);
+    public ResponseEntity<?> getActiveIPOs() {
+        try {
+            List<IPODTO> ipos = ipoService.getActiveIPOs();
+            return ResponseEntity.ok(ipos);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage() != null ? e.getMessage() : "Unknown Error", "trace",
+                            e.toString()));
+        }
     }
 
     @GetMapping("/upcoming")
@@ -95,17 +102,24 @@ public class IPOController {
         return ResponseEntity.ok(Map.of("message", "IPO status check triggered successfully"));
     }
 
-    @PostMapping("/{id}/allot")
-    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
-    public ResponseEntity<IPODTO> allotIPO(@PathVariable Long id) {
-        IPODTO result = ipoService.processAllotment(id);
-        return ResponseEntity.ok(result);
-    }
+    // OLD ALLOTMENT ENDPOINT REMOVED - Use AllotmentController for Maker-Checker
+    // workflow
+    // POST /api/allotment/submit (Maker)
+    // POST /api/allotment/verify/{ipoId} (Checker)
 
     @PostMapping("/{id}/list")
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     public ResponseEntity<IPODTO> listIPO(@PathVariable Long id) {
         IPODTO result = ipoService.listIPO(id);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/{id}/initiate-allotment")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<IPODTO> initiateAllotment(
+            @PathVariable Long id,
+            @RequestParam String adminName) {
+        IPODTO result = ipoService.initiateAllotmentPhase(id, adminName);
         return ResponseEntity.ok(result);
     }
 }

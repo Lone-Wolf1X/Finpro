@@ -29,6 +29,21 @@ public class BulkDepositController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    @PostMapping("/upload-csv")
+    @PreAuthorize("hasAnyRole('MAKER', 'ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<BulkDepositDTO> uploadCSV(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam("bankName") String bankName,
+            @RequestParam(value = "transactionReference", required = false) String transactionReference,
+            @RequestParam Long makerId) {
+        try {
+            BulkDepositDTO created = bulkDepositService.createFromCSV(file, bankName, transactionReference, makerId);
+            return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        } catch (Exception e) {
+            throw new RuntimeException("CSV upload failed: " + e.getMessage(), e);
+        }
+    }
+
     @PutMapping("/{batchId}/verify")
     @PreAuthorize("hasAnyRole('CHECKER', 'ADMIN', 'SUPERADMIN')")
     public ResponseEntity<BulkDepositDTO> verifyBulkDeposit(

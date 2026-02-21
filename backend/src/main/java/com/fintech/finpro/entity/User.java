@@ -9,13 +9,13 @@ import java.time.LocalDateTime;
 /**
  * User entity for staff users (Admin, Maker, Checker, Investor)
  */
-@Entity
-@Table(name = "users")
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@EqualsAndHashCode(callSuper = true)
+@Entity
+@Table(name = "users")
 public class User extends BaseEntity {
 
     @Column(name = "tenant_id", nullable = false)
@@ -61,6 +61,12 @@ public class User extends BaseEntity {
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
 
+    @Column(name = "deposit_limit", precision = 19, scale = 2)
+    private java.math.BigDecimal depositLimit;
+
+    @Column(name = "withdrawal_limit", precision = 19, scale = 2)
+    private java.math.BigDecimal withdrawalLimit;
+
     /**
      * Get full name of the user
      */
@@ -78,6 +84,12 @@ public class User extends BaseEntity {
         }
         if (mustChangePassword == null) {
             mustChangePassword = false;
+        }
+        if (depositLimit == null) {
+            depositLimit = new java.math.BigDecimal("10000");
+        }
+        if (withdrawalLimit == null) {
+            withdrawalLimit = new java.math.BigDecimal("10000");
         }
     }
 }

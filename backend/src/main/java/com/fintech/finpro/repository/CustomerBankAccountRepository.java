@@ -28,5 +28,7 @@ public interface CustomerBankAccountRepository extends JpaRepository<CustomerBan
             @Param("customerId") Long customerId,
             @Param("accountNumber") String accountNumber);
 
+    Optional<CustomerBankAccount> findByAccountNumber(String accountNumber);
+
     boolean existsByCustomerIdAndAccountNumber(Long customerId, String accountNumber);
 }

@@ -21,8 +21,8 @@ public class DashboardController {
     public ResponseEntity<DashboardStats> getStats() {
         long totalUsers = userRepository.count();
         long totalCustomers = customerRepository.count();
-        long activeCustomers = customerRepository.countByKycStatus("APPROVED");
-        long pendingApprovals = customerRepository.countByKycStatus("PENDING");
+        long activeCustomers = customerRepository.countByKycStatus(com.fintech.finpro.enums.KycStatus.APPROVED);
+        long pendingApprovals = customerRepository.countByKycStatus(com.fintech.finpro.enums.KycStatus.PENDING);
 
         DashboardStats stats = new DashboardStats(
                 totalUsers,

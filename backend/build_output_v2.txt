@@ -1,0 +1,64 @@
+[INFO] Scanning for projects...
+[WARNING] 
+[WARNING] Some problems were encountered while building the effective model for com.fintech:finpro-backend:jar:1.0.0
+[WARNING] 'dependencies.dependency.(groupId:artifactId:type:classifier)' must be unique: com.opencsv:opencsv:jar -> duplicate declaration of version 5.9 @ line 147, column 21
+[WARNING] 
+[WARNING] It is highly recommended to fix these problems because they threaten the stability of your build.
+[WARNING] 
+[WARNING] For this reason, future Maven versions might no longer support building such malformed projects.
+[WARNING] 
+[INFO] 
+[INFO] ---------------------< com.fintech:finpro-backend >---------------------
+[INFO] Building Finpro Backend 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.3.2:clean (default-clean) @ finpro-backend ---
+[INFO] Deleting /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/target
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ finpro-backend ---
+[INFO] Copying 1 resource from src/main/resources to target/classes
+[INFO] Copying 50 resources from src/main/resources to target/classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ finpro-backend ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 150 source files with javac [debug release 17] to target/classes
+[INFO] -------------------------------------------------------------
+[WARNING] COMPILATION WARNING : 
+[INFO] -------------------------------------------------------------
+[WARNING] /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/src/main/java/com/fintech/finpro/entity/SystemAccount.java:[61,5] @Builder.Default requires @Builder or @SuperBuilder on the class for it to mean anything.
+[WARNING] /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/src/main/java/com/fintech/finpro/entity/SystemAccount.java:[65,5] @Builder.Default requires @Builder or @SuperBuilder on the class for it to mean anything.
+[WARNING] /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/src/main/java/com/fintech/finpro/entity/Customer.java:[11,1] Generating equals/hashCode implementation but without a call to superclass, even though this class does not extend java.lang.Object. If this is intentional, add '@EqualsAndHashCode(callSuper=false)' to your type.
+[WARNING] /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/src/main/java/com/fintech/finpro/entity/IPO.java:[11,1] Generating equals/hashCode implementation but without a call to superclass, even though this class does not extend java.lang.Object. If this is intentional, add '@EqualsAndHashCode(callSuper=false)' to your type.
+[WARNING] /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/src/main/java/com/fintech/finpro/entity/IPOApplication.java:[13,1] Generating equals/hashCode implementation but without a call to superclass, even though this class does not extend java.lang.Object. If this is intentional, add '@EqualsAndHashCode(callSuper=false)' to your type.
+[WARNING] /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/src/main/java/com/fintech/finpro/entity/User.java:[12,1] Generating equals/hashCode implementation but without a call to superclass, even though this class does not extend java.lang.Object. If this is intentional, add '@EqualsAndHashCode(callSuper=false)' to your type.
+[WARNING] /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/src/main/java/com/fintech/finpro/entity/LedgerAccount.java:[9,1] Generating equals/hashCode implementation but without a call to superclass, even though this class does not extend java.lang.Object. If this is intentional, add '@EqualsAndHashCode(callSuper=false)' to your type.
+[WARNING] /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/src/main/java/com/fintech/finpro/entity/Investor.java:[12,1] Generating equals/hashCode implementation but without a call to superclass, even though this class does not extend java.lang.Object. If this is intentional, add '@EqualsAndHashCode(callSuper=false)' to your type.
+[INFO] 8 warnings 
+[INFO] -------------------------------------------------------------
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/src/main/java/com/fintech/finpro/entity/SystemAccount.java:[15,1] cannot find symbol
+  symbol:   method $default$balance()
+  location: class com.fintech.finpro.entity.SystemAccount
+[INFO] 1 error
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  8.276 s
+[INFO] Finished at: 2026-02-17T10:02:43+05:45
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.11.0:compile (default-compile) on project finpro-backend: Compilation failure
+[ERROR] /Users/abhisekpaswan/Downloads/FInpro V1/Finpro/backend/src/main/java/com/fintech/finpro/entity/SystemAccount.java:[15,1] cannot find symbol
+[ERROR]   symbol:   method $default$balance()
+[ERROR]   location: class com.fintech.finpro.entity.SystemAccount
+[ERROR] 
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

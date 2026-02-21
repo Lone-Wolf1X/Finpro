@@ -47,13 +47,10 @@ public class CustomerCreateDTO {
     @NotNull(message = "Bank is required")
     private Long bankId;
 
-    private java.math.BigDecimal initialDeposit; // Optional initial deposit amount
+    private java.math.BigDecimal initialDeposit;
 
-    // Guardian ID (required for MINOR customers)
     private Long guardianId;
-
     private String guardianName;
-
     private String guardianRelation;
 
     @Size(max = 50, message = "Citizenship number must not exceed 50 characters")
@@ -72,12 +69,4 @@ public class CustomerCreateDTO {
 
     @Builder.Default
     private boolean skipGuardianKycCheck = false;
-
-    public String getBankAccountNumber() {
-        return bankAccountNumber;
-    }
-
-    public void setBankAccountNumber(String bankAccountNumber) {
-        this.bankAccountNumber = bankAccountNumber;
-    }
 }

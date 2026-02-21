@@ -21,6 +21,7 @@ public class IPODTO {
     private String symbol;
     private Long issueSize;
     private BigDecimal pricePerShare;
+    private BigDecimal currentPrice;
     private Integer minQuantity;
     private Integer maxQuantity;
     private LocalDateTime openDate;

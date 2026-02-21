@@ -24,6 +24,7 @@ public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
+    private final com.fintech.finpro.repository.TenantRepository tenantRepository; // Injected
     private final JwtService jwtService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
@@ -31,40 +32,41 @@ public class AuthController {
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         System.out.println("\n=== LOGIN ATTEMPT ===");
         System.out.println("Email/UserID: " + request.getEmail());
-        System.out.println("Password length: " + (request.getPassword() != null ? request.getPassword().length() : 0));
-
+        
         try {
-            System.out.println("Attempting authentication...");
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
-            System.out.println("Authentication successful!");
             UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-            System.out.println("Principal username: " + userDetails.getUsername());
-
             User user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found after authentication"));
+
+            // Fetch Real Tenant
+            Tenant tenant = tenantRepository.findById(user.getTenantId())
+                    .orElseThrow(() -> new RuntimeException("Tenant not found"));
+
+            // Check Subscription Status
+            if ("SUSPENDED".equalsIgnoreCase(tenant.getSubscriptionStatus()) || 
+                "EXPIRED".equalsIgnoreCase(tenant.getSubscriptionStatus()) ||
+                "INACTIVE".equalsIgnoreCase(tenant.getStatus())) {
+                return ResponseEntity.status(403).body(Map.of("message", "Subscription is " + tenant.getSubscriptionStatus() + ". Please contact support."));
+            }
+
+            // Check Subscription Expiry Date
+            if (tenant.getSubscriptionEndDate() != null && tenant.getSubscriptionEndDate().isBefore(java.time.LocalDateTime.now())) {
+                 return ResponseEntity.status(403).body(Map.of("message", "Subscription expired on " + tenant.getSubscriptionEndDate()));
+            }
 
             System.out.println("Generating JWT token...");
             java.util.Map<String, Object> extraClaims = new java.util.HashMap<>();
             extraClaims.put("userId", user.getId());
             extraClaims.put("role", user.getRole());
+            extraClaims.put("tenantId", tenant.getId());
             String token = jwtService.generateToken(extraClaims, userDetails);
 
-            Tenant tenant = new Tenant();
-            tenant.setId(user.getTenantId() != null ? user.getTenantId() : 1L);
-            tenant.setTenantKey("nextgen");
-            tenant.setCompanyName("Next Gen Innovations Nepal");
-            tenant.setStatus("ACTIVE");
-
             LoginResponse response = new LoginResponse(user, tenant, token);
-            System.out.println("Login successful for user: " + user.getEmail());
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            System.err.println("=== LOGIN FAILED ===");
-            System.err.println("User: " + request.getEmail());
-            System.err.println("Error type: " + e.getClass().getName());
-            System.err.println("Error message: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(401).body(Map.of("message", "Invalid credentials: " + e.getMessage()));
         }

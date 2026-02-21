@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { bankAccountApi } from '../../api/customerApi';
+import { ledgerApi } from '../../api/customerApi';
 import {
     ArrowLeft,
     Wallet,
@@ -54,25 +54,11 @@ export default function SystemAccountDetails() {
     const loadAccount = async () => {
         try {
             setLoading(true);
-            // Assuming we have an endpoint or can use a generic one
-            // Ideally we should add getById to ledgerApi or systemAccountApi
-            // For now using direct axios call to backend
             const response = await apiClient.get<SystemAccount>(`/ledger/system-accounts/${id}`);
             setAccount(response.data);
         } catch (error) {
             console.error('Failed to load system account:', error);
-            // Fallback: try to find from list if individual endpoint fails
-            try {
-                const listResponse = await apiClient.get<SystemAccount[]>('/ledger/system-accounts');
-                const found = listResponse.data.find(a => a.id === Number(id));
-                if (found) {
-                    setAccount(found);
-                } else {
-                    throw new Error('Account not found');
-                }
-            } catch (innerError) {
-                toast.error('Failed to load account details');
-            }
+            toast.error('Failed to load account details');
         } finally {
             setLoading(false);
         }
@@ -81,7 +67,7 @@ export default function SystemAccountDetails() {
     const loadStatement = async () => {
         try {
             setLoadingStatement(true);
-            const response = await bankAccountApi.getSystemAccountStatement(Number(id), startDate, endDate);
+            const response = await ledgerApi.getStatement(Number(id), startDate, endDate);
             setStatement(response.data);
         } catch (error) {
             console.error('Failed to load statement:', error);

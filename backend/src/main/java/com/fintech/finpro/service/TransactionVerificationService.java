@@ -2,11 +2,8 @@ package com.fintech.finpro.service;
 
 import com.fintech.finpro.dto.PendingTransactionDTO;
 import com.fintech.finpro.entity.PendingTransaction;
-import com.fintech.finpro.entity.CustomerBankAccount;
 import com.fintech.finpro.repository.PendingTransactionRepository;
-import com.fintech.finpro.repository.CustomerBankAccountRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,18 +12,28 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class TransactionVerificationService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TransactionVerificationService.class);
 
     private final PendingTransactionRepository pendingTransactionRepository;
     private final CapitalDepositService capitalDepositService;
     private final TransactionService transactionService;
-    private final CustomerBankAccountRepository bankAccountRepository;
     private final com.fintech.finpro.repository.UserRepository userRepository;
+    private final SecondaryMarketService secondaryMarketService;
 
     @Transactional(readOnly = true)
     public List<PendingTransactionDTO> getAllPendingTransactions() {
         return pendingTransactionRepository.findByStatusOrderByCreatedAtDesc("PENDING").stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PendingTransactionDTO> getTransactionsByCustomerId(Long customerId) {
+        return pendingTransactionRepository.findByCustomer_IdOrderByCreatedAtDesc(customerId).stream()
+                .filter(tx -> "BUY_SHARES".equals(tx.getTransactionType())
+                        || "SELL_SHARES".equals(tx.getTransactionType()))
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -67,33 +74,21 @@ public class TransactionVerificationService {
                     transaction.getDescription(),
                     checkerId,
                     transaction.getAccount()); // Pass bank account
-
-            // Update physical bank account balance
-            CustomerBankAccount account = transaction.getAccount();
-            if (account != null) {
-                account.setBalance(account.getBalance().add(transaction.getAmount()));
-                bankAccountRepository.save(account);
-            }
-        } else if ("WITHDRAWAL".equals(type)) {
-            // Process customer withdrawal from ledger
-            if (transaction.getCustomer() == null) {
-                throw new RuntimeException("Customer not found in transaction");
-            }
             transactionService.withdrawalFromCustomer(
                     transaction.getCustomer().getId(),
                     transaction.getAmount(),
                     transaction.getDescription(),
                     checkerId,
                     transaction.getAccount()); // Pass bank account
-
-            // Update physical bank account balance
-            CustomerBankAccount account = transaction.getAccount();
-            if (account != null) {
-                if (account.getBalance().compareTo(transaction.getAmount()) < 0) {
-                    throw new RuntimeException("Insufficient balance in physical bank account");
-                }
-                account.setBalance(account.getBalance().subtract(transaction.getAmount()));
-                bankAccountRepository.save(account);
+        } else if ("BUY_SHARES".equals(type) || "SELL_SHARES".equals(type)) {
+            try {
+                log.info("Executing trade settlement for transaction {}", transactionId);
+                secondaryMarketService.executeTradeSettlement(transaction, checkerId);
+                log.info("Trade settlement completed successfully for transaction {}", transactionId);
+            } catch (Exception e) {
+                log.error("Failed to execute trade settlement for transaction {}: {}", transactionId, e.getMessage(),
+                        e);
+                throw new RuntimeException("Settlement failed: " + e.getMessage());
             }
         }
 
@@ -117,6 +112,19 @@ public class TransactionVerificationService {
         transaction.reject(checkerId, reason);
         PendingTransaction saved = pendingTransactionRepository.save(transaction);
         return convertToDTO(saved);
+    }
+
+    @Transactional
+    public void deletePendingTransaction(Long transactionId) {
+        PendingTransaction transaction = pendingTransactionRepository
+                .findById(transactionId)
+                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+
+        if (!"PENDING".equals(transaction.getStatus())) {
+            throw new RuntimeException("Only PENDING transactions can be deleted");
+        }
+
+        pendingTransactionRepository.delete(transaction);
     }
 
     private PendingTransactionDTO convertToDTO(PendingTransaction transaction) {

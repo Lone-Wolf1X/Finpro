@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateInvestorRequest {
+
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
     private String email;

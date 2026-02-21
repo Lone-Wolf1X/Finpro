@@ -11,8 +11,8 @@ const Login = () => {
     const dispatch = useAppDispatch();
     const { loading, error } = useAppSelector((state) => state.auth);
 
-    const [email, setEmail] = useState('100');
-    const [password, setPassword] = useState('100');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

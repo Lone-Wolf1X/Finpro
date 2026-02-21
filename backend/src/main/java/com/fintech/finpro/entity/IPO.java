@@ -1,6 +1,8 @@
 package com.fintech.finpro.entity;
 
 import com.fintech.finpro.enums.IPOStatus;
+import com.fintech.finpro.enums.IssueType;
+import com.fintech.finpro.enums.SecurityType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,11 +10,11 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(name = "ipos")
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@EqualsAndHashCode(callSuper = true)
 public class IPO extends BaseEntity {
 
     @Column(name = "company_name", nullable = false, length = 200)
@@ -26,7 +28,11 @@ public class IPO extends BaseEntity {
 
     @Column(name = "price_per_share", nullable = false, precision = 10, scale = 2)
     private BigDecimal pricePerShare;
+    @Column(name = "current_price", precision = 10, scale = 2)
+    private BigDecimal currentPrice;
 
+    @Column(name = "last_closing_price", precision = 10, scale = 2)
+    private BigDecimal lastClosingPrice;
     @Column(name = "min_quantity", nullable = false)
     private Integer minQuantity;
 
@@ -50,8 +56,36 @@ public class IPO extends BaseEntity {
     @Builder.Default
     private IPOStatus status = IPOStatus.UPCOMING;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "issue_type", length = 20)
+    @Builder.Default
+    private IssueType issueType = IssueType.IPO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "security_type", length = 20)
+    @Builder.Default
+    private SecurityType securityType = SecurityType.EQUITY;
+
+    @Column(name = "area_affected_shares")
+    private Long areaAffectedShares;
+
+    @Column(name = "foreign_employment_shares")
+    private Long foreignEmploymentShares;
+
+    @Column(name = "local_shares")
+    private Long localShares;
+
+    @Column(name = "public_shares")
+    private Long publicShares;
+
     @Column(columnDefinition = "TEXT")
     private String description;
+
+    @Column(name = "allotment_initiated_at")
+    private java.time.LocalDateTime allotmentInitiatedAt;
+
+    @Column(name = "allotment_initiated_by", length = 100)
+    private String allotmentInitiatedBy;
 
     /**
      * Check if IPO is currently open for applications

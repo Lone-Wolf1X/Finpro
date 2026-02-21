@@ -53,4 +53,14 @@ public interface LedgerTransactionRepository extends JpaRepository<LedgerTransac
 
         List<LedgerTransaction> findByDebitAccountIdInOrCreditAccountIdIn(List<Long> debitAccountIds,
                         List<Long> creditAccountIds);
+
+        @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(lt.amount), 0) FROM LedgerTransaction lt WHERE lt.creditAccount.id = :accountId AND lt.status = 'COMPLETED'")
+        java.math.BigDecimal getTotalCredits(
+                        @org.springframework.data.repository.query.Param("accountId") Long accountId);
+
+        @org.springframework.data.jpa.repository.Query("SELECT COALESCE(SUM(lt.amount), 0) FROM LedgerTransaction lt WHERE lt.debitAccount.id = :accountId AND lt.status = 'COMPLETED'")
+        java.math.BigDecimal getTotalDebits(
+                        @org.springframework.data.repository.query.Param("accountId") Long accountId);
+
+        void deleteByReferenceIdStartingWith(String referenceIdPrefix);
 }

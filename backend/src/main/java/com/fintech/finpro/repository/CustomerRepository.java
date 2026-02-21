@@ -18,11 +18,11 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
     java.util.Optional<Customer> findByNidNumber(String nidNumber);
 
-    List<Customer> findByKycStatus(String kycStatus);
+    List<Customer> findByKycStatus(com.fintech.finpro.enums.KycStatus kycStatus);
 
     List<Customer> findByCustomerType(CustomerType customerType);
 
-    @Query("SELECT c FROM Customer c WHERE c.customerType = com.fintech.finpro.enums.CustomerType.MAJOR AND c.kycStatus = 'APPROVED'")
+    @Query("SELECT c FROM Customer c WHERE c.customerType = com.fintech.finpro.enums.CustomerType.MAJOR AND c.kycStatus = com.fintech.finpro.enums.KycStatus.APPROVED")
     List<Customer> findEligibleGuardians();
 
     @Query("SELECT c FROM Customer c WHERE c.guardian.id = :guardianId")
@@ -36,7 +36,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     List<Customer> searchCustomers(@Param("search") String search);
 
     @Query("SELECT c FROM Customer c WHERE c.customerType = :type AND c.kycStatus = :status")
-    List<Customer> findByTypeAndStatus(@Param("type") CustomerType type, @Param("status") String status);
+    List<Customer> findByTypeAndStatus(@Param("type") CustomerType type, @Param("status") com.fintech.finpro.enums.KycStatus status);
 
     @Query("SELECT MAX(c.customerCode) FROM Customer c WHERE c.customerCode LIKE CONCAT(:yearPrefix, '%')")
     String findMaxCustomerCodeByYear(@Param("yearPrefix") String yearPrefix);
@@ -45,5 +45,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
     boolean existsByPhone(String phone);
 
-    long countByKycStatus(String kycStatus);
+    java.util.Optional<Customer> findByCustomerCode(String customerCode);
+
+    long countByKycStatus(com.fintech.finpro.enums.KycStatus kycStatus);
 }

@@ -7,6 +7,7 @@ import com.fintech.finpro.entity.CustomerBankAccount;
 import com.fintech.finpro.repository.CustomerBankAccountRepository;
 import com.fintech.finpro.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,16 +15,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.math.BigDecimal;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BankAccountService {
 
         private final CustomerBankAccountRepository bankAccountRepository;
         private final CustomerRepository customerRepository;
+        private final com.fintech.finpro.repository.UserRepository userRepository; // Inject UserRepository
         private final com.fintech.finpro.repository.PendingTransactionRepository pendingTransactionRepository;
         private final com.fintech.finpro.repository.LedgerTransactionRepository ledgerTransactionRepository;
         private final SystemAccountService systemAccountService;
         private final TransactionService transactionService;
+        private final AuditLogService auditLogService;
 
         @Transactional
         public BankAccountDTO createBankAccount(BankAccountCreateDTO dto) {
@@ -290,7 +294,29 @@ public class BankAccountService {
                         sourceSystemAccount = systemAccountService.getCoreCapitalAccount();
                 }
 
-                boolean canAutoApprove = sourceSystemAccount.getBalance().compareTo(amount) >= 0;
+                // Fetch Maker to check limits
+                com.fintech.finpro.entity.User maker = userRepository.findById(makerId)
+                                .orElseThrow(() -> new RuntimeException("Maker not found"));
+
+                // Robust limit and Admin check
+                boolean isAdmin = maker.getRole() == com.fintech.finpro.enums.Role.ADMIN
+                                || maker.getRole() == com.fintech.finpro.enums.Role.SUPERADMIN;
+
+                java.math.BigDecimal depositLimit = maker.getDepositLimit() != null ? maker.getDepositLimit()
+                                : new java.math.BigDecimal("10000");
+
+                boolean sufficientFunds = sourceSystemAccount.getBalance().compareTo(amount) >= 0;
+                boolean withinLimit = isAdmin || amount.compareTo(depositLimit) <= 0;
+
+                if (!sufficientFunds && !isAdmin) {
+                        throw new RuntimeException("Insufficient funds in source account: "
+                                        + sourceSystemAccount.getAccountName());
+                }
+
+                if (!sufficientFunds && isAdmin) {
+                        log.warn("Admin {} bypassing insufficient funds check for source account {}",
+                                        makerId, sourceSystemAccount.getAccountName());
+                }
 
                 com.fintech.finpro.entity.PendingTransaction transaction = com.fintech.finpro.entity.PendingTransaction
                                 .builder()
@@ -303,7 +329,7 @@ public class BankAccountService {
                                 .isBulk(false)
                                 .build();
 
-                if (canAutoApprove) {
+                if (withinLimit) {
                         // Execute immediately
                         transactionService.depositToCustomer(
                                         customer.getId(),
@@ -311,10 +337,6 @@ public class BankAccountService {
                                         description,
                                         makerId,
                                         account);
-
-                        // Update physical bank account
-                        account.setBalance(account.getBalance().add(amount));
-                        bankAccountRepository.save(account);
 
                         // Mark as Approved
                         transaction.setStatus("APPROVED");
@@ -326,6 +348,12 @@ public class BankAccountService {
                 }
 
                 com.fintech.finpro.entity.PendingTransaction saved = pendingTransactionRepository.save(transaction);
+
+                // Log activity
+                auditLogService.log(makerId, "CREATE_BANK_DEPOSIT", "PendingTransaction", saved.getId(),
+                                String.format("Created %s bank deposit for customer %s. Amount: %s",
+                                                saved.getStatus().toLowerCase(), customer.getFullName(), amount));
+
                 return mapTransactionToDTO(saved);
         }
 
@@ -336,31 +364,63 @@ public class BankAccountService {
         public com.fintech.finpro.dto.PendingTransactionDTO createWithdrawal(Long accountId,
                         java.math.BigDecimal amount,
                         String description, Long makerId) {
-                CustomerBankAccount account = bankAccountRepository
+                CustomerBankAccount bankAccount = bankAccountRepository
                                 .findById(java.util.Objects.requireNonNull(accountId))
                                 .orElseThrow(() -> new RuntimeException(
                                                 "Bank account not found with ID: " + accountId));
 
-                // Check sufficient balance
-                if (account.getBalance().compareTo(amount) < 0) {
-                        throw new RuntimeException("Insufficient balance in account");
+                // Validate sufficient balance
+                if (bankAccount.getBalance().compareTo(amount) < 0) {
+                        throw new RuntimeException("Insufficient balance for withdrawal");
                 }
+
+                // Fetch Maker to check limits
+                com.fintech.finpro.entity.User maker = userRepository.findById(makerId)
+                                .orElseThrow(() -> new RuntimeException("Maker not found"));
+
+                boolean isAdmin = maker.getRole() == com.fintech.finpro.enums.Role.ADMIN
+                                || maker.getRole() == com.fintech.finpro.enums.Role.SUPERADMIN;
+
+                java.math.BigDecimal withdrawalLimit = maker.getWithdrawalLimit() != null ? maker.getWithdrawalLimit()
+                                : new java.math.BigDecimal("10000");
+
+                boolean withinLimit = isAdmin || amount.compareTo(withdrawalLimit) <= 0;
 
                 com.fintech.finpro.entity.PendingTransaction transaction = com.fintech.finpro.entity.PendingTransaction
                                 .builder()
                                 .transactionType("WITHDRAWAL")
                                 .amount(amount)
-                                .account(account)
-                                .customer(account.getCustomer())
+                                .account(bankAccount)
+                                .customer(bankAccount.getCustomer())
                                 .description(description)
                                 .createdByUserId(makerId)
-                                .status("PENDING")
+                                .status(withinLimit ? "APPROVED" : "PENDING") // Approved if within limit
                                 .isBulk(false)
                                 .build();
 
-                // com.fintech.finpro.entity.PendingTransaction saved =
-                // pendingTransactionRepository.save(transaction);
-                return mapTransactionToDTO(pendingTransactionRepository.save(transaction));
+                if (withinLimit) {
+                        // Auto-approve logic: Execute immediately via TransactionService
+                        transactionService.withdrawalFromCustomer(
+                                        bankAccount.getCustomer().getId(),
+                                        amount,
+                                        description,
+                                        makerId,
+                                        bankAccount);
+
+                        transaction.setStatus("APPROVED");
+                        transaction.setVerifiedAt(java.time.LocalDateTime.now());
+                }
+
+                com.fintech.finpro.entity.PendingTransaction saved = pendingTransactionRepository.save(transaction);
+
+                // Log activity
+                auditLogService.log(makerId, "CREATE_BANK_WITHDRAWAL", "PendingTransaction", saved.getId(),
+                                String.format("Created %s bank withdrawal for customer %s. Amount: %s",
+                                                saved.getStatus().toLowerCase(),
+                                                bankAccount.getCustomer().getFullName(),
+                                                amount));
+
+                return mapTransactionToDTO(saved);
         }
 
         /**

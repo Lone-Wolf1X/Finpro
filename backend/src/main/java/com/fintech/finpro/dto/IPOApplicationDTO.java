@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class IPOApplicationDTO {
-
     private Long id;
     private Long customerId;
     private String customerName;
@@ -37,6 +36,7 @@ public class IPOApplicationDTO {
     private String approvedBy;
     private Long makerId;
     private Long checkerId;
+    private LocalDateTime statusUpdatedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

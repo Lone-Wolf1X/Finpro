@@ -15,16 +15,19 @@ import java.time.LocalDate;
 public class CustomerPortfolioDTO {
     private Long id;
     private Long customerId;
+    private String customerName;
     private Long ipoId;
     private String ipoCompanyName;
     private String scripSymbol;
     private Integer quantity;
     private BigDecimal purchasePrice;
     private BigDecimal totalCost;
-    private BigDecimal currentPrice; // For future use (LTP)
-    private BigDecimal currentValue; // For future use (LTP * Qty)
-    private BigDecimal profitLoss; // For future use
     private LocalDate holdingSince;
     private String status;
     private Boolean isBonus;
+    private BigDecimal currentPrice;
+    private BigDecimal currentValue;
+    private BigDecimal lastClosingPrice;
+    private BigDecimal valueAsOfLastClosingPrice;
+    private BigDecimal profitLoss;
 }

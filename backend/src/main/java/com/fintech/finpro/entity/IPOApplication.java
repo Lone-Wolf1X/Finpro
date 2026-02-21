@@ -10,11 +10,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "ipo_applications")
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@EqualsAndHashCode(callSuper = true)
 public class IPOApplication extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -79,6 +79,9 @@ public class IPOApplication extends BaseEntity {
 
     @Column(name = "status_updated_at")
     private LocalDateTime statusUpdatedAt;
+
+    @Column(name = "applied_category", length = 50)
+    private String appliedCategory;
 
     /**
      * Generate unique application number

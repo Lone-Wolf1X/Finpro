@@ -29,7 +29,7 @@ public interface PendingTransactionRepository extends JpaRepository<PendingTrans
     /**
      * Find pending transactions by customer
      */
-    List<PendingTransaction> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
+    List<PendingTransaction> findByCustomer_IdOrderByCreatedAtDesc(Long customerId);
 
     /**
      * Find pending transactions created by maker
@@ -60,6 +60,12 @@ public interface PendingTransactionRepository extends JpaRepository<PendingTrans
     /**
      * Find pending transactions by status and type
      */
+    /**
+     * Find pending transactions by customer, status and type
+     */
+    List<PendingTransaction> findByCustomer_IdAndStatusAndTransactionType(Long customerId, String status,
+            String transactionType);
+
     @Query("SELECT pt FROM PendingTransaction pt WHERE pt.status = :status AND pt.transactionType = :type ORDER BY pt.createdAt DESC")
     List<PendingTransaction> findByStatusAndType(@Param("status") String status, @Param("type") String type);
 }

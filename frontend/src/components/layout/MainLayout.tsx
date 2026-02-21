@@ -5,15 +5,18 @@ import {
     LayoutDashboard,
     Users,
     UserCog,
+    UserCircle,
     Building2,
     LogOut,
     Menu,
     Landmark,
     Wallet,
     CheckSquare,
-    Briefcase,
-    TrendingUp
+    Plus,
+    Banknote
 } from 'lucide-react';
+
+
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { customerApi, transactionVerificationApi } from '@/api/customerApi';
@@ -75,20 +78,25 @@ const MainLayout = () => {
     };
 
     const menuItems = [
+        { icon: LayoutDashboard, label: 'SA Dashboard', path: '/admin/super-dashboard', roles: ['SUPERADMIN'] },
+        { icon: Building2, label: 'SA Tenants', path: '/admin/tenants', roles: ['SUPERADMIN'] },
         { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', roles: ['SUPERADMIN', 'ADMIN', 'MAKER', 'CHECKER'] },
         { icon: Users, label: 'User Management', path: '/users', roles: ['SUPERADMIN', 'ADMIN'] },
         { icon: UserCog, label: 'Customer Management', path: '/customers', roles: ['SUPERADMIN', 'ADMIN', 'MAKER', 'CHECKER'], badge: pendingKycCount },
         { icon: Users, label: 'KYC Alignment', path: '/admin/kyc-alignment', roles: ['SUPERADMIN', 'ADMIN'] },
         { icon: Landmark, label: 'Banking Operations', path: '/banking/operations', roles: ['MAKER', 'ADMIN', 'SUPERADMIN'] },
         { icon: CheckSquare, label: 'Verify Transactions', path: '/transactions/verify', roles: ['CHECKER', 'ADMIN', 'SUPERADMIN'], badge: pendingTxCount },
-        { icon: CheckSquare, label: 'IPO Applications', path: '/ipo-applications', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER'] },
+        { icon: CheckSquare, label: 'IPO Applications', path: '/ipo-applications', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER', 'MAKER'] },
+        { icon: Plus, label: 'Bulk IPO Apply', path: '/ipo-applications/bulk', roles: ['SUPERADMIN', 'ADMIN', 'MAKER'] },
         { icon: LayoutDashboard, label: 'IPO Listings', path: '/ipos', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER', 'INVESTOR'] },
-        { icon: Briefcase, label: 'My Portfolio', path: '/portfolio', roles: ['SUPERADMIN', 'ADMIN', 'INVESTOR', 'MAKER'] },
-        { icon: TrendingUp, label: 'Buy Shares', path: '/secondary-market/buy', roles: ['SUPERADMIN', 'ADMIN', 'INVESTOR', 'MAKER'] },
+        { icon: Landmark, label: 'Bank Module', path: '/bank-module', roles: ['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN'] },
+
         { icon: Landmark, label: 'Manage Banks', path: '/banks', roles: ['SUPERADMIN', 'ADMIN'] },
         { icon: LayoutDashboard, label: 'System Accounts', path: '/admin/system-accounts', roles: ['SUPERADMIN', 'ADMIN'] },
+        { icon: CheckSquare, label: 'Limit Requests', path: '/admin/limit-requests', roles: ['SUPERADMIN', 'ADMIN'] },
         { icon: Wallet, label: 'Bulk Deposit', path: '/bulk-deposits/create', roles: ['SUPERADMIN', 'ADMIN', 'MAKER'] },
         { icon: Wallet, label: 'Verify Bulk Deposits', path: '/bulk-deposits/verify', roles: ['SUPERADMIN', 'ADMIN', 'CHECKER'] },
+        { icon: Banknote, label: 'Secondary Market', path: '/admin/market', roles: ['SUPERADMIN', 'ADMIN'] },
         { icon: Building2, label: 'Tenant Settings', path: '/tenant', roles: ['SUPERADMIN', 'ADMIN'] },
     ];
 
@@ -165,6 +173,13 @@ const MainLayout = () => {
                                             <p className="text-sm font-medium text-gray-900 truncate">{user?.firstName} {user?.lastName}</p>
                                             <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                                         </div>
+                                        <Link
+                                            to="/profile"
+                                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                        >
+                                            <UserCircle className="w-4 h-4" />
+                                            My Profile
+                                        </Link>
                                         <button
                                             onClick={handleLogout}
                                             className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"

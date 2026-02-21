@@ -66,7 +66,7 @@ export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export type CustomerType = 'MAJOR' | 'MINOR';
 export type KycStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'DRAFT' | 'RETURNED';
 export type AccountType = 'SAVINGS' | 'CURRENT' | 'FIXED_DEPOSIT';
-export type IPOStatus = 'UPCOMING' | 'OPEN' | 'CLOSED' | 'ALLOTTED' | 'LISTED';
+export type IPOStatus = 'UPCOMING' | 'OPEN' | 'CLOSED' | 'ALLOTTED' | 'LISTED' | 'ALLOTMENT_PHASE';
 export type ApplicationStatus = 'PENDING' | 'PENDING_VERIFICATION' | 'VERIFIED' | 'APPROVED' | 'REJECTED' | 'ALLOTTED';
 export type PaymentStatus = 'PENDING' | 'PAID' | 'REFUNDED' | 'FAILED';
 
@@ -145,6 +145,15 @@ export interface LedgerAccount {
     status: string;
     createdAt: string;
     updatedAt: string;
+    accountCode?: string;
+}
+
+export interface ProfitSummary {
+    accountId: number;
+    accountName: string;
+    currentBalance: number;
+    totalEarned: number;
+    totalWithdrawn: number;
 }
 
 export interface BankAccount {
@@ -199,6 +208,8 @@ export interface IPO {
     symbol?: string;
     issueSize: number;
     pricePerShare: number;
+    currentPrice?: number;
+    lastClosingPrice?: number;
     minQuantity: number;
     maxQuantity: number;
     openDate: string;
@@ -233,13 +244,13 @@ export interface IPOApplication {
     customerName: string;
     ipoId: number;
     ipoCompanyName: string;
-    bankAccountId?: number;
-    bankAccountNumber?: string;
+    bankAccountId: number;
+    bankAccountNumber: string;
     quantity: number;
     amount: number;
     applicationNumber: string;
-    applicationStatus: ApplicationStatus;
-    paymentStatus: PaymentStatus;
+    applicationStatus: string;
+    paymentStatus: string;
     allotmentQuantity: number;
     allotmentStatus: string;
     appliedAt: string;
@@ -247,8 +258,41 @@ export interface IPOApplication {
     rejectedAt?: string;
     rejectionReason?: string;
     approvedBy?: string;
+    makerId?: number;
+    checkerId?: number;
     createdAt: string;
     updatedAt: string;
+}
+
+export interface AccountLien {
+    id: number;
+    bankAccountId: number;
+    amount: number;
+    purpose: string;
+    referenceId: string;
+    status: string;
+    startDate?: string;
+    expiryDate?: string;
+    reason?: string;
+    createdAt: string;
+}
+
+export interface AccountBalanceInfo {
+    accountNumber: string;
+    bankName: string;
+    customerName: string;
+    totalBalance: number;
+    heldBalance: number;
+    availableBalance: number;
+    accountType: string;
+    status: string;
+}
+
+export interface ATBRequest {
+    accountNumber: string;
+    amount: number;
+    particulars: string;
+    transactionType: 'DEPOSIT' | 'WITHDRAWAL';
 }
 
 export interface CreateIPOApplicationRequest {
@@ -335,9 +379,69 @@ export interface CustomerPortfolio {
     quantity: number;
     purchasePrice: number;
     totalCost: number;
-    currentValue?: number; // Calculated on frontend or backend?
+    currentPrice?: number;
+    currentValue?: number;
+    lastClosingPrice?: number;
+    valueAsOfLastClosingPrice?: number;
     profitLoss?: number;
     holdingSince: string;
     status: string;
     isBonus: boolean;
+}
+
+export interface BankDTO {
+    id: number;
+    name: string;
+    branchName: string;
+    localBody?: string;
+    isCasba?: boolean;
+    casbaCharge?: number;
+    active: boolean;
+}
+
+export interface AllotmentDraft {
+    id: number;
+    ipoId: number;
+    ipoCompanyName: string;
+    ipoSymbol: string;
+    applicationId: number;
+    applicationNumber: string;
+    customerId: number;
+    customerName: string;
+    appliedQuantity: number;
+    appliedAmount: number;
+    isAllotted: boolean;
+    allottedQuantity: number;
+    status: string;
+    makerId: number;
+    makerName: string;
+    checkerId?: number;
+    checkerName?: string;
+    createdAt: string;
+    submittedAt: string;
+    verifiedAt?: string;
+    remarks?: string;
+}
+
+export interface AllotmentSubmission {
+    ipoId: number;
+    items: {
+        applicationId: number;
+        quantity: number;
+        isAllotted: boolean;
+    }[];
+}
+
+export interface PortfolioTransaction {
+    id: number;
+    customerId: number;
+    scripSymbol: string;
+    transactionType: 'BUY' | 'SELL' | 'ALLOTMENT' | 'BONUS';
+    quantity: number;
+    pricePerShare: number;
+    totalAmount: number;
+    transactionFee?: number;
+    referenceId?: string;
+    remarks?: string;
+    transactionDate: string;
 }

@@ -35,6 +35,9 @@ public class BulkDepositItem {
     @Column(length = 20)
     private String status; // PENDING, PROCESSED
 
+    @Column(name = "bank_transaction_ref", length = 100)
+    private String bankTransactionRef;
+
     @Column(name = "tenant_id")
     private Long tenantId;
 }

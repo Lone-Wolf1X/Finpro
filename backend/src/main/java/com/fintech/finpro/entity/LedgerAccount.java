@@ -6,13 +6,13 @@ import lombok.*;
 
 import java.math.BigDecimal;
 
-@Entity
-@Table(name = "ledger_accounts")
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@EqualsAndHashCode(callSuper = true)
+@Entity
+@Table(name = "ledger_accounts")
 public class LedgerAccount extends com.fintech.finpro.entity.BaseEntity {
 
     @Column(name = "account_name", nullable = false)
@@ -36,8 +36,4 @@ public class LedgerAccount extends com.fintech.finpro.entity.BaseEntity {
     @Column(length = 20)
     @Builder.Default
     private String status = "ACTIVE";
-
-    public String getAccountName() {
-        return this.accountName;
-    }
 }

@@ -28,7 +28,11 @@ export default function CapitalDepositForm() {
     const loadSystemAccounts = async () => {
         try {
             const response = await apiClient.get('/system-accounts');
-            setSystemAccounts(response.data);
+            // Filter to show only Core Capital and relevant accounts
+            const relevantAccounts = response.data.filter((acc: any) =>
+                acc.accountCode === 'CORE_CAPITAL' || acc.accountCode === 'OFFICE'
+            );
+            setSystemAccounts(relevantAccounts);
         } catch (error) {
             console.error('Failed to load system accounts:', error);
             toast.error('Failed to load target accounts');

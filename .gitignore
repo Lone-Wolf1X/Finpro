@@ -39,3 +39,13 @@ walkthrough.md
 # Application logs
 logs/
 *.log
+
+# Local Tools
+tools/
+tools/*.tar.gz
+
+# Extra Logs
+startup_error*.log
+
+# Mac System Files
+.DS_Store

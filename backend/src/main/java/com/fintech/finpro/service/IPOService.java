@@ -156,6 +156,22 @@ public class IPOService {
         ipoRepository.delete(java.util.Objects.requireNonNull(ipo));
     }
 
+    @Transactional
+    public IPODTO initiateAllotmentPhase(Long id, String adminName) {
+        IPO ipo = ipoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + id));
+
+        if (!IPOStatus.CLOSED.equals(ipo.getStatus()) && !IPOStatus.OPEN.equals(ipo.getStatus())) {
+            throw new RuntimeException("IPO must be CLOSED or OPEN to initiate allotment phase");
+        }
+
+        ipo.setStatus(IPOStatus.ALLOTMENT_PHASE);
+        ipo.setAllotmentInitiatedAt(LocalDateTime.now());
+        ipo.setAllotmentInitiatedBy(adminName);
+
+        return mapToDTO(ipoRepository.save(ipo));
+    }
+
     /**
      * Auto-close IPOs that have passed their close date
      */
@@ -226,35 +242,6 @@ public class IPOService {
     }
 
     @Transactional
-    public IPODTO processAllotment(Long ipoId) {
-        IPO ipo = ipoRepository.findById(java.util.Objects.requireNonNull(ipoId))
-                .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + ipoId));
-
-        if (ipo.getStatus() != IPOStatus.CLOSED) {
-            throw new RuntimeException("IPO must be CLOSED to process allotment");
-        }
-
-        // Fetch all APPROVED applications using injected repository
-        List<com.fintech.finpro.entity.IPOApplication> approvedApps = applicationRepository
-                .findByIpoIdAndApplicationStatus(ipoId, com.fintech.finpro.enums.ApplicationStatus.APPROVED);
-
-        // Process each application
-        // For MVP: Full Allotment (Allot requested quantity)
-        // In real world: Logic for oversubscription
-        for (com.fintech.finpro.entity.IPOApplication app : approvedApps) {
-            try {
-                applicationService.allotShares(app.getId(), app.getQuantity());
-            } catch (Exception e) {
-                System.err.println("Failed to allot for application " + app.getId() + ": " + e.getMessage());
-                // Continue with others
-            }
-        }
-
-        ipo.setStatus(IPOStatus.ALLOTTED);
-        return mapToDTO(ipoRepository.save(ipo));
-    }
-
-    @Transactional
     public IPODTO listIPO(Long ipoId) {
         IPO ipo = ipoRepository.findById(java.util.Objects.requireNonNull(ipoId))
                 .orElseThrow(() -> new RuntimeException("IPO not found with ID: " + ipoId));
@@ -285,6 +272,7 @@ public class IPOService {
                 .symbol(ipo.getSymbol())
                 .issueSize(ipo.getIssueSize())
                 .pricePerShare(ipo.getPricePerShare())
+                .currentPrice(ipo.getCurrentPrice() != null ? ipo.getCurrentPrice() : ipo.getPricePerShare())
                 .minQuantity(ipo.getMinQuantity())
                 .maxQuantity(ipo.getMaxQuantity())
                 .openDate(ipo.getOpenDate())

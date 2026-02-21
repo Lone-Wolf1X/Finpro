@@ -1,13 +1,9 @@
 import apiClient from './apiClient';
 import {
-    Customer,
-    CreateCustomerRequest,
-    BankAccount,
-    CreateBankAccountRequest,
-    IPO,
-    CreateIPORequest,
-    IPOApplication,
-    CreateIPOApplicationRequest,
+    Customer, CreateCustomerRequest, IPO, CreateIPORequest, IPOApplication, CreateIPOApplicationRequest,
+    BankAccount, CreateBankAccountRequest,
+    CustomerPortfolio, PortfolioTransaction,
+    AccountStatement, ProfitSummary, PendingTransaction, AccountBalanceInfo, AccountLien, ATBRequest, BankDTO
 } from '../types';
 
 // Customer API
@@ -48,9 +44,7 @@ export const customerApi = {
 
 // Bank Account API
 export const bankAccountApi = {
-    getAll: () =>
-        apiClient.get<BankAccount[]>('/bank-accounts'),
-
+    getAll: () => apiClient.get<BankAccount[]>('/bank-accounts'),
     getById: (id: number) =>
         apiClient.get<BankAccount>(`/bank-accounts/${id}`),
 
@@ -82,10 +76,10 @@ export const bankAccountApi = {
         apiClient.post(`/bank-accounts/${id}/withdraw`, data),
 
     getStatement: (id: number, startDate: string, endDate: string) =>
-        apiClient.get<any>(`/bank-accounts/${id}/statement`, { params: { startDate, endDate } }),
+        apiClient.get<AccountStatement>(`/bank-accounts/${id}/statement`, { params: { startDate, endDate } }),
 
     getSystemAccountStatement: (id: number, startDate: string, endDate: string) =>
-        apiClient.get<any>(`/bank-accounts/system-accounts/${id}/statement`, { params: { startDate, endDate } }),
+        apiClient.get<AccountStatement>(`/bank-accounts/system-accounts/${id}/statement`, { params: { startDate, endDate } }),
 };
 
 // IPO API
@@ -116,6 +110,9 @@ export const ipoApi = {
 
     autoClose: () =>
         apiClient.post('/ipos/auto-close'),
+
+    initiateAllotment: (id: number, adminName: string) =>
+        apiClient.post<IPO>(`/ipos/${id}/initiate-allotment`, null, { params: { adminName } }),
 };
 
 // IPO Application API
@@ -149,6 +146,38 @@ export const ipoApplicationApi = {
 
     allotShares: (id: number, quantity: number) =>
         apiClient.put<IPOApplication>(`/ipo-applications/${id}/allot`, null, { params: { quantity } }),
+
+    // New Allotment / Bulk methods
+    bulkCreate: (data: {
+        ipoId: number;
+        items: { customerId: number; bankAccountId: number; quantity: number }[];
+        makerId?: number;
+    }) =>
+        apiClient.post('/ipo-applications/bulk', data),
+
+    markAllotment: (data: { applicationId: number; quantity: number; status: string }) =>
+        apiClient.put<IPOApplication>('/ipo-applications/mark-allotment', data),
+
+    bulkAllot: (ids: number[]) =>
+        apiClient.put('/ipo-applications/bulk-allot', ids),
+
+    resetStatus: (id: number, status: string) =>
+        apiClient.put(`/ipo-applications/${id}/reset-status`, null, { params: { status } }),
+
+    // New Allotment Workflow Methods
+    markResult: (id: number, isAllotted: boolean, quantity: number) =>
+        apiClient.put<IPOApplication>(`/ipo-applications/${id}/mark-result`, null, {
+            params: { isAllotted, quantity }
+        }),
+
+    verifyAllotment: (id: number) =>
+        apiClient.put<IPOApplication>(`/ipo-applications/${id}/verify-allotment`),
+
+    bulkVerify: (ids: number[]) =>
+        apiClient.put('/ipo-applications/bulk-verify', ids),
+
+    delete: (id: number) =>
+        apiClient.delete(`/ipo-applications/${id}`),
 };
 
 // Ledger (System Accounts) API
@@ -158,6 +187,15 @@ export const ledgerApi = {
 
     createSystemAccount: (name: string, type: string) =>
         apiClient.post('/ledger/system-accounts', { name, type }),
+
+    getStatement: (id: number, startDate: string, endDate: string) =>
+        apiClient.get<any>(`/ledger/${id}/statement`, { params: { startDate, endDate } }),
+
+    getProfitSummary: () =>
+        apiClient.get<ProfitSummary>('/admin/profits/summary'),
+
+    withdrawProfits: (amount: number, description: string) =>
+        apiClient.post('/admin/profits/withdraw', { amount, description }),
 };
 
 // System Account API
@@ -185,25 +223,43 @@ export const bulkDepositApi = {
 
     reject: (batchId: string, remarks: string, checkerId: number) =>
         apiClient.put<any>(`/bulk-deposits/${batchId}/reject`, { remarks }, { params: { checkerId } }),
+
+    uploadCSV: (file: File, bankName: string, transactionRef: string, makerId: number) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('bankName', bankName);
+        formData.append('transactionReference', transactionRef);
+        formData.append('makerId', makerId.toString());
+        return apiClient.post<any>('/bulk-deposits/upload-csv', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
 };
 
 // Transaction Verification API
 export const transactionVerificationApi = {
     getPending: () =>
-        apiClient.get<import('../types').PendingTransaction[]>('/transactions/pending'),
+        apiClient.get<PendingTransaction[]>('/transactions/pending'),
+
+    getByCustomerId: (customerId: number) =>
+        apiClient.get<PendingTransaction[]>(`/transactions/customer/${customerId}`),
 
     approve: (id: number) =>
-        apiClient.post<import('../types').PendingTransaction>(`/transactions/${id}/approve`),
+        apiClient.post<PendingTransaction>(`/transactions/${id}/approve`),
 
     reject: (id: number, reason: string) =>
-        apiClient.post<import('../types').PendingTransaction>(`/transactions/${id}/reject`, { reason }),
+        apiClient.post<PendingTransaction>(`/transactions/${id}/reject`, { reason }),
 };
 
 // Customer Portfolio API
 export const portfolioApi = {
     getByCustomerId: (customerId: number) =>
-        apiClient.get<import('../types').CustomerPortfolio[]>(`/portfolios/customer/${customerId}`),
+        apiClient.get<CustomerPortfolio[]>(`/portfolios/customer/${customerId}`),
+    getTransactions: () => apiClient.get<PortfolioTransaction[]>('/portfolio/transactions'),
+    getTransactionsByCustomerId: (customerId: number) =>
+        apiClient.get<PortfolioTransaction[]>(`/portfolio/transactions/customer/${customerId}`),
 };
+
 
 // Secondary Market API
 export const secondaryMarketApi = {
@@ -212,4 +268,75 @@ export const secondaryMarketApi = {
 
     buy: (symbol: string, quantity: number, price: number) =>
         apiClient.post('/secondary-market/buy', null, { params: { symbol, quantity, price } }),
+
+
+
+    // Admin Methods
+    updatePrice: (ipoId: number, newPrice: number) =>
+        apiClient.post('/secondary-market/admin/update-price', null, { params: { ipoId, newPrice } }),
+
+    listIPO: (ipoId: number, listingPrice: number) =>
+        apiClient.post('/secondary-market/admin/list-ipo', null, { params: { ipoId, listingPrice } }),
+
+    // Admin On-Behalf Methods
+    buyOnBehalf: (customerId: number, symbol: string, quantity: number, price: number) =>
+        apiClient.post('/secondary-market/admin/buy', null, { params: { customerId, symbol, quantity, price } }),
+
+    sellOnBehalf: (customerId: number, portfolioId: number, quantity: number, price: number) =>
+        apiClient.post('/secondary-market/admin/sell', null, { params: { customerId, portfolioId, quantity, price } }),
+
+    manualAdjustment: (customerId: number, symbol: string, quantity: number, price: number, type: 'CREDIT' | 'DEBIT') =>
+        apiClient.post('/secondary-market/admin/manual-adjustment', null, { params: { customerId, symbol, quantity, price, type } }),
+};
+
+
+// Bank Module API
+export const bankModuleApi = {
+    abci: (accountNumber: string) =>
+        apiClient.get<AccountBalanceInfo>(`/bank-module/abci/${accountNumber}`),
+
+    alm: (bankAccountId: number) =>
+        apiClient.get<AccountLien[]>(`/bank-module/alm/${bankAccountId}`),
+
+    addLien: (data: Partial<AccountLien>) =>
+        apiClient.post<AccountLien>('/bank-module/alm/add', data),
+
+    releaseLien: (lienId: number) =>
+        apiClient.put(`/bank-module/alm/release/${lienId}`),
+
+    atbTransaction: (data: ATBRequest) =>
+        apiClient.post('/bank-module/atb/transaction', data),
+};
+
+// Bank API
+export const bankApi = {
+    getAll: (activeOnly?: boolean) =>
+        apiClient.get<BankDTO[]>('/banks', { params: { activeOnly } }),
+};
+// Allotment API (Workflow)
+export const allotmentApi = {
+    getIPOsInAllotmentPhase: () =>
+        apiClient.get<IPO[]>('/allotment/ipos-in-allotment-phase'),
+
+    getValidApplications: (ipoId: number) =>
+        apiClient.get<IPOApplication[]>(`/allotment/${ipoId}/applications`),
+
+    submitDrafts: (data: { ipoId: number; items: { applicationId: number; quantity: number; isAllotted: boolean }[] }) =>
+        apiClient.post<{ message: string }>('/allotment/submit', data),
+
+    getPendingDrafts: (ipoId?: number) =>
+        ipoId
+            ? apiClient.get<any[]>(`/allotment/${ipoId}/pending-drafts`)
+            : apiClient.get<any[]>('/allotment/pending-verification'),
+
+    verify: (ipoId: number, approve: boolean, remarks?: string) =>
+        apiClient.post<{ message: string }>(`/allotment/${ipoId}/verify`, null, {
+            params: { approve, remarks }
+        }),
+
+    getSummary: (ipoId: number) =>
+        apiClient.get<any>(`/allotment/summary/${ipoId}`),
+
+    getAllSummaries: () =>
+        apiClient.get<any[]>('/allotment/all-summaries'),
 };

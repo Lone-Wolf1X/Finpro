@@ -7,22 +7,29 @@ import MainLayout from './components/layout/MainLayout';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import Dashboard from './features/dashboard/Dashboard';
 import UserManagement from './features/users/UserManagement';
+import UserProfile from './features/users/UserProfile';
+import AdminLimitRequests from './features/admin/AdminLimitRequests';
 import SystemAccountManagement from './features/admin/SystemAccountManagement';
 import SystemAccountDetails from './features/admin/SystemAccountDetails';
+import BankingSystemAccountDetails from './features/banking/SystemAccountDetails';
 import TransactionVerification from './features/admin/TransactionVerification';
 import KYCAlignment from './features/admin/KYCAlignment';
+import SuperAdminDashboard from './features/admin/SuperAdminDashboard';
+import TenantManagement from './features/admin/TenantManagement';
+import AdminMarketDashboard from './features/admin/AdminMarketDashboard';
 
 import CustomerList from './features/customers/CustomerList';
 import CustomerForm from './features/customers/CustomerForm';
 import IPOList from './features/customers/IPOList';
 import IPODetails from './features/customers/IPODetails';
 import IPOApplicationForm from './features/customers/IPOApplicationForm';
-import IPOApplicationAdminList from './features/customers/IPOApplicationAdminList';
+import IPOApplicationManagement from './features/customers/IPOApplicationManagement';
 import IPOForm from './features/ipos/IPOForm';
 import IPOManagement from './features/ipos/IPOManagement';
 import CustomerProfile from './features/customers/CustomerProfile';
 import BulkCustomerUpload from './features/customers/BulkCustomerUpload';
 import BulkDepositPage from './features/customers/BulkDepositPage';
+import BulkIPOApplyPage from './features/customers/BulkIPOApplyPage';
 import BulkDepositVerificationPage from './features/customers/BulkDepositVerificationPage';
 import BankList from './features/banks/BankList';
 import BankAccountDetails from './features/banking/BankAccountDetails';
@@ -30,6 +37,7 @@ import BankOperations from './features/banking/BankOperations';
 import CapitalDepositForm from './features/admin/CapitalDepositForm';
 import PortfolioList from './features/customers/PortfolioList';
 import SecondaryMarketBuy from './features/customers/SecondaryMarketBuy';
+import BankModule from './features/bank/BankModule';
 import './index.css';
 
 function App() {
@@ -57,6 +65,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole={['SUPERADMIN', 'ADMIN']}>
                   <UserManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="profile"
+              element={
+                <ProtectedRoute>
+                  <UserProfile />
                 </ProtectedRoute>
               }
             />
@@ -151,8 +167,8 @@ function App() {
             <Route
               path="ipo-applications"
               element={
-                <ProtectedRoute requiredRole={['CHECKER', 'ADMIN', 'SUPERADMIN']}>
-                  <IPOApplicationAdminList />
+                <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN']}>
+                  <IPOApplicationManagement />
                 </ProtectedRoute>
               }
             />
@@ -161,6 +177,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
                   <IPOApplicationForm />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="ipo-applications/bulk"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
+                  <BulkIPOApplyPage />
                 </ProtectedRoute>
               }
             />
@@ -185,6 +209,22 @@ function App() {
               element={
                 <ProtectedRoute requiredRole={['CHECKER', 'ADMIN', 'SUPERADMIN']}>
                   <BulkDepositVerificationPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/super-dashboard"
+              element={
+                <ProtectedRoute requiredRole={['SUPERADMIN']}>
+                  <SuperAdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/tenants"
+              element={
+                <ProtectedRoute requiredRole={['SUPERADMIN']}>
+                  <TenantManagement />
                 </ProtectedRoute>
               }
             />
@@ -237,6 +277,22 @@ function App() {
               }
             />
             <Route
+              path="admin/limit-requests"
+              element={
+                <ProtectedRoute requiredRole={['ADMIN', 'SUPERADMIN']}>
+                  <AdminLimitRequests />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/market"
+              element={
+                <ProtectedRoute requiredRole={['ADMIN', 'SUPERADMIN']}>
+                  <AdminMarketDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="banking/operations"
               element={
                 <ProtectedRoute requiredRole={['MAKER', 'ADMIN', 'SUPERADMIN']}>
@@ -245,10 +301,26 @@ function App() {
               }
             />
             <Route
+              path="bank-module"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN']}>
+                  <BankModule />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="banking/accounts/:id"
               element={
                 <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN']}>
                   <BankAccountDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="banking/system-accounts/:id"
+              element={
+                <ProtectedRoute requiredRole={['MAKER', 'CHECKER', 'ADMIN', 'SUPERADMIN']}>
+                  <BankingSystemAccountDetails />
                 </ProtectedRoute>
               }
             />

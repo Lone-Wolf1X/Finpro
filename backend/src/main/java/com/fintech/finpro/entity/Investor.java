@@ -9,13 +9,13 @@ import java.math.BigDecimal;
  * Investor Entity
  * Manages investors and their capital accounts
  */
-@Entity
-@Table(name = "investors")
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@EqualsAndHashCode(callSuper = true)
+@Entity
+@Table(name = "investors")
 public class Investor extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)

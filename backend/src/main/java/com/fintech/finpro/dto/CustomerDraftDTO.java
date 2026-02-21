@@ -39,7 +39,6 @@ public class CustomerDraftDTO {
 
     private Long bankId;
 
-    // Guardian ID (required for MINOR customers, optional for draft)
     private Long guardianId;
 
     private String guardianName;

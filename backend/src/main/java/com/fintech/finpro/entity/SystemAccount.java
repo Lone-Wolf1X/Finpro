@@ -10,13 +10,13 @@ import java.math.BigDecimal;
  * Represents core financial accounts: CORE_CAPITAL, EXPENSES_POOL,
  * SUBSCRIPTION_POOL
  */
-@Entity
-@Table(name = "system_accounts")
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@EqualsAndHashCode(callSuper = true)
+@Entity
+@Table(name = "system_accounts")
 public class SystemAccount extends BaseEntity {
 
     @Column(name = "account_number", nullable = false, unique = true, length = 20)
@@ -58,53 +58,5 @@ public class SystemAccount extends BaseEntity {
      */
     public boolean isSubscriptionPool() {
         return "SUBSCRIPTION_POOL".equals(this.accountCode);
-    }
-
-    public String getAccountName() {
-        return this.accountName;
-    }
-
-    public void setAccountName(String accountName) {
-        this.accountName = accountName;
-    }
-
-    public String getAccountNumber() {
-        return accountNumber;
-    }
-
-    public void setAccountNumber(String accountNumber) {
-        this.accountNumber = accountNumber;
-    }
-
-    public String getAccountCode() {
-        return accountCode;
-    }
-
-    public void setAccountCode(String accountCode) {
-        this.accountCode = accountCode;
-    }
-
-    public BigDecimal getBalance() {
-        return balance;
-    }
-
-    public void setBalance(BigDecimal balance) {
-        this.balance = balance;
-    }
-
-    public Boolean getIsSystemAccount() {
-        return isSystemAccount;
-    }
-
-    public void setIsSystemAccount(Boolean isSystemAccount) {
-        this.isSystemAccount = isSystemAccount;
-    }
-
-    public Long getOwnerId() {
-        return ownerId;
-    }
-
-    public void setOwnerId(Long ownerId) {
-        this.ownerId = ownerId;
     }
 }

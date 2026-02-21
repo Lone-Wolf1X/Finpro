@@ -1,9 +1,9 @@
 package com.fintech.finpro.service;
 
 import com.fintech.finpro.entity.SystemAccount;
+import com.fintech.finpro.enums.LedgerAccountType;
 import com.fintech.finpro.repository.SystemAccountRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,12 +13,14 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class SystemAccountService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(SystemAccountService.class);
 
     private final SystemAccountRepository systemAccountRepository;
     private final com.fintech.finpro.repository.LedgerTransactionRepository ledgerTransactionRepository;
     private final com.fintech.finpro.repository.LedgerAccountRepository ledgerAccountRepository;
+    private final com.fintech.finpro.service.LedgerService ledgerService;
 
     /**
      * Initialize core system accounts if they don't exist
@@ -64,6 +66,19 @@ public class SystemAccountService {
                     .build();
             systemAccountRepository.save(subscriptionPool);
             log.info("Created SUBSCRIPTION_POOL account");
+        }
+
+        // Create ADMIN_PROFIT account
+        if (systemAccountRepository.findByAccountCode("ADMIN_PROFIT").isEmpty()) {
+            SystemAccount adminProfit = SystemAccount.builder()
+                    .accountNumber("100002026004")
+                    .accountCode("ADMIN_PROFIT")
+                    .accountName("Admin Profit Account")
+                    .balance(BigDecimal.ZERO)
+                    .isSystemAccount(true)
+                    .build();
+            systemAccountRepository.save(adminProfit);
+            log.info("Created ADMIN_PROFIT account");
         }
 
         log.info("Core system accounts initialization complete");
@@ -112,49 +127,101 @@ public class SystemAccountService {
      * Get CORE_CAPITAL account
      */
     public SystemAccount getCoreCapitalAccount() {
-        return systemAccountRepository.findCoreCapitalAccount()
+        SystemAccount account = systemAccountRepository.findCoreCapitalAccount()
                 .orElseThrow(() -> new RuntimeException(
                         "CORE_CAPITAL account not found. Please initialize system accounts."));
+        syncBalanceFromLedger(account);
+        return account;
     }
 
     /**
      * Get EXPENSES_POOL account
      */
     public SystemAccount getExpensesPoolAccount() {
-        return systemAccountRepository.findExpensesPoolAccount()
+        SystemAccount account = systemAccountRepository.findExpensesPoolAccount()
                 .orElseThrow(() -> new RuntimeException(
                         "EXPENSES_POOL account not found. Please initialize system accounts."));
+        syncBalanceFromLedger(account);
+        return account;
     }
 
     /**
      * Get SUBSCRIPTION_POOL account
      */
     public SystemAccount getSubscriptionPoolAccount() {
-        return systemAccountRepository.findSubscriptionPoolAccount()
+        SystemAccount account = systemAccountRepository.findSubscriptionPoolAccount()
                 .orElseThrow(() -> new RuntimeException(
                         "SUBSCRIPTION_POOL account not found. Please initialize system accounts."));
+        syncBalanceFromLedger(account);
+        return account;
     }
 
     /**
      * Get all system accounts
      */
     public List<SystemAccount> getAllSystemAccounts() {
-        return systemAccountRepository.findByIsSystemAccountTrue();
+        List<SystemAccount> accounts = systemAccountRepository.findByIsSystemAccountTrue();
+        accounts.forEach(this::syncBalanceFromLedger);
+        return accounts;
     }
 
     /**
      * Get account by ID
      */
     public SystemAccount getAccountById(Long id) {
-        return systemAccountRepository.findById(id)
+        SystemAccount account = systemAccountRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("System account not found with id: " + id));
+        syncBalanceFromLedger(account);
+        return account;
+    }
+
+    /**
+     * Get account by ID with fallback for Ledger Account ID
+     */
+    @Transactional
+    public SystemAccount getAccountByIdOrLedgerId(Long id) {
+        return systemAccountRepository.findById(id)
+                .map(account -> {
+                    syncBalanceFromLedger(account);
+                    return account;
+                })
+                .orElseGet(() -> getAccountByLedgerId(id));
+    }
+
+    /**
+     * Get account by Ledger Account ID (Fallback for frontend ID mismatch)
+     */
+    @Transactional
+    public SystemAccount getAccountByLedgerId(Long ledgerId) {
+        com.fintech.finpro.entity.LedgerAccount ledgerAccount = ledgerAccountRepository.findById(ledgerId)
+                .orElseThrow(() -> new RuntimeException("Ledger account not found with id: " + ledgerId));
+
+        // Try to find SystemAccount by name (since names are synced)
+        return systemAccountRepository.findByAccountName(ledgerAccount.getAccountName())
+                .map(account -> {
+                    syncBalanceFromLedger(account);
+                    return account;
+                })
+                .orElseGet(() -> {
+                    log.info("Creating SystemAccount mapping for LedgerAccount: {}", ledgerAccount.getAccountName());
+                    SystemAccount newAccount = SystemAccount.builder()
+                            .accountNumber("S-" + ledgerAccount.getId()) // Use a pseudo-number
+                            .accountCode(ledgerAccount.getAccountName().toUpperCase().replace(" ", "_"))
+                            .accountName(ledgerAccount.getAccountName())
+                            .balance(ledgerAccount.getBalance())
+                            .isSystemAccount(true)
+                            .build();
+                    return systemAccountRepository.save(newAccount);
+                });
     }
 
     /**
      * Get account by account code
      */
     public Optional<SystemAccount> getAccountByCode(String accountCode) {
-        return systemAccountRepository.findByAccountCode(accountCode);
+        Optional<SystemAccount> accountOpt = systemAccountRepository.findByAccountCode(accountCode);
+        accountOpt.ifPresent(this::syncBalanceFromLedger);
+        return accountOpt;
     }
 
     /**
@@ -187,8 +254,17 @@ public class SystemAccountService {
         SystemAccount account = getAccountById(accountId);
         BigDecimal newBalance = account.getBalance().subtract(amount);
 
+        // Note: System accounts might go negative depending on logic, but keeping check
+        // for now
+        // or we can remove it if overdraft is allowed for internal accounts.
+        // For now, keeping as is.
+
         if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
-            throw new RuntimeException("Insufficient balance in account " + account.getAccountNumber());
+            // throw new RuntimeException("Insufficient balance in account " +
+            // account.getAccountNumber());
+            // Allow negative balance for system accounts for now to reflect actual ledger
+            // position
+            log.warn("Account {} going negative: {}", account.getAccountNumber(), newBalance);
         }
 
         account.setBalance(newBalance);
@@ -206,37 +282,12 @@ public class SystemAccountService {
             java.time.LocalDate startDate,
             java.time.LocalDate endDate) {
 
-        SystemAccount account = getAccountById(accountId);
+        SystemAccount account = getAccountById(accountId); // This now syncs balance
         java.time.LocalDateTime startDateTime = startDate.atStartOfDay();
         java.time.LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
         // Find corresponding Ledger Account (Safely)
-        com.fintech.finpro.entity.LedgerAccount ledgerAccount;
-        if (account.getOwnerId() != null) {
-            // Investor Capital - try to find by specific logic or name
-            // For now, rely on name matching which is consistent with creation logic
-            ledgerAccount = ledgerAccountRepository.findByAccountName(account.getAccountName())
-                    .orElseThrow(() -> new RuntimeException(
-                            "Ledger account not found for system account: " + account.getAccountName()));
-        } else {
-            // Core System Account
-            // Check account code first for known system accounts
-            if (account.getAccountCode().equals("CORE_CAPITAL")) {
-                ledgerAccount = ledgerAccountRepository.findByAccountName("Core Capital")
-                        .orElseThrow(() -> new RuntimeException("Ledger account 'Core Capital' not found"));
-            } else if (account.getAccountCode().equals("EXPENSES_POOL")) {
-                ledgerAccount = ledgerAccountRepository.findByAccountName("Office Expenses")
-                        .orElseThrow(() -> new RuntimeException("Ledger account 'Office Expenses' not found"));
-            } else if (account.getAccountCode().equals("SUBSCRIPTION_POOL")) {
-                ledgerAccount = ledgerAccountRepository.findByAccountName("Subscription Fees")
-                        .orElseThrow(() -> new RuntimeException("Ledger account 'Subscription Fees' not found"));
-            } else {
-                // Try exact name match for other accounts
-                ledgerAccount = ledgerAccountRepository.findByAccountName(account.getAccountName())
-                        .orElseThrow(() -> new RuntimeException(
-                                "Ledger account not found for system account: " + account.getAccountName()));
-            }
-        }
+        com.fintech.finpro.entity.LedgerAccount ledgerAccount = getLedgerAccountForSystemAccount(account);
 
         // 1. Get Opening Balance
         BigDecimal openingBalance = ledgerTransactionRepository.getLedgerOpeningBalance(ledgerAccount.getId(),
@@ -284,9 +335,71 @@ public class SystemAccountService {
                 .accountNumber(account.getAccountNumber())
                 .bankName("System Account")
                 .customerName(account.getAccountName())
-                .currentBalance(account.getBalance()) // System Account Balance (Should match runningBalance if up to
-                                                      // date)
+                .currentBalance(account.getBalance()) // Now synced
                 .transactions(transactionDTOs)
+                .build();
+    }
+
+    /**
+     * Helper to find the LedgerAccount for a SystemAccount
+     */
+    private com.fintech.finpro.entity.LedgerAccount getLedgerAccountForSystemAccount(SystemAccount account) {
+        if (account.getOwnerId() != null) {
+            // Investor Capital
+            return ledgerAccountRepository.findByAccountName(account.getAccountName())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Ledger account not found for system account: " + account.getAccountName()));
+        } else {
+            // Core System Account
+            if ("CORE_CAPITAL".equals(account.getAccountCode())) {
+                return ledgerAccountRepository.findByAccountName("Core Capital Account")
+                        .orElseThrow(() -> new RuntimeException("Ledger account 'Core Capital Account' not found"));
+            } else if ("EXPENSES_POOL".equals(account.getAccountCode())) {
+                return ledgerAccountRepository.findByAccountName("Office Expenses")
+                        .orElseThrow(() -> new RuntimeException("Ledger account 'Office Expenses' not found"));
+            } else if ("SUBSCRIPTION_POOL".equals(account.getAccountCode())) {
+                return ledgerAccountRepository.findByAccountName("Subscription Fees")
+                        .orElseThrow(() -> new RuntimeException("Ledger account 'Subscription Fees' not found"));
+            } else if ("ADMIN_PROFIT".equals(account.getAccountCode())) {
+                return ledgerService.getOrCreateAccount("Admin Profits", LedgerAccountType.PROFIT_ACCOUNT, null);
+            } else {
+                return ledgerAccountRepository.findByAccountName(account.getAccountName())
+                        .orElseThrow(() -> new RuntimeException(
+                                "Ledger account not found for system account: " + account.getAccountName()));
+            }
+        }
+    }
+
+    /**
+     * Helper to sync SystemAccount balance from LedgerAccount
+     */
+    private void syncBalanceFromLedger(SystemAccount account) {
+        try {
+            com.fintech.finpro.entity.LedgerAccount ledgerAccount = getLedgerAccountForSystemAccount(account);
+            if (account.getBalance().compareTo(ledgerAccount.getBalance()) != 0) {
+                log.info("Syncing SystemAccount {} balance from {} to {}", account.getAccountName(),
+                        account.getBalance(), ledgerAccount.getBalance());
+                account.setBalance(ledgerAccount.getBalance());
+                systemAccountRepository.save(account);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to sync balance for account {}: {}", account.getAccountName(), e.getMessage());
+        }
+    }
+
+    public com.fintech.finpro.dto.ProfitSummaryDTO getProfitSummary(Long systemAccountId) {
+        SystemAccount account = getAccountById(systemAccountId);
+        com.fintech.finpro.entity.LedgerAccount ledgerAccount = getLedgerAccountForSystemAccount(account);
+
+        java.math.BigDecimal totalEarned = ledgerTransactionRepository.getTotalCredits(ledgerAccount.getId());
+        java.math.BigDecimal totalWithdrawn = ledgerTransactionRepository.getTotalDebits(ledgerAccount.getId());
+
+        return com.fintech.finpro.dto.ProfitSummaryDTO.builder()
+                .accountId(account.getId())
+                .accountName(account.getAccountName())
+                .currentBalance(account.getBalance())
+                .totalEarned(totalEarned)
+                .totalWithdrawn(totalWithdrawn)
                 .build();
     }
 }

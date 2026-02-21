@@ -22,7 +22,13 @@ export default function IPOForm() {
         closeDate: '',
         closeTime: '',
         description: '',
-        status: 'UPCOMING'
+        status: 'UPCOMING',
+        issueType: 'IPO',
+        securityType: 'EQUITY',
+        areaAffectedShares: '0',
+        foreignEmploymentShares: '0',
+        localShares: '0',
+        publicShares: '0'
     });
 
     const [loading, setLoading] = useState(false);
@@ -41,7 +47,6 @@ export default function IPOForm() {
             });
             const data = response.data;
 
-            // Helper to split ISO datetime into date and time
             const splitDateTime = (isoString?: string) => {
                 if (!isoString) return { date: '', time: '' };
                 const dateObj = new Date(isoString);
@@ -65,7 +70,13 @@ export default function IPOForm() {
                 closeDate: close.date,
                 closeTime: close.time,
                 description: data.description || '',
-                status: data.status
+                status: data.status,
+                issueType: data.issueType || 'IPO',
+                securityType: data.securityType || 'EQUITY',
+                areaAffectedShares: (data.areaAffectedShares || 0).toString(),
+                foreignEmploymentShares: (data.foreignEmploymentShares || 0).toString(),
+                localShares: (data.localShares || 0).toString(),
+                publicShares: (data.publicShares || 0).toString()
             });
         } catch (error) {
             toast.error('Failed to load IPO details');
@@ -78,7 +89,6 @@ export default function IPOForm() {
             setLoading(true);
             const token = localStorage.getItem('token');
 
-            // Combine date and time
             const combineDateTime = (date: string, time: string) => {
                 return `${date}T${time}:00`;
             };
@@ -93,8 +103,15 @@ export default function IPOForm() {
                 openDate: combineDateTime(formData.openDate, formData.openTime),
                 closeDate: combineDateTime(formData.closeDate, formData.closeTime),
                 description: formData.description,
-                status: formData.status
+                status: formData.status,
+                issueType: formData.issueType,
+                securityType: formData.securityType,
+                areaAffectedShares: parseInt(formData.areaAffectedShares),
+                foreignEmploymentShares: parseInt(formData.foreignEmploymentShares),
+                localShares: parseInt(formData.localShares),
+                publicShares: parseInt(formData.publicShares)
             };
+
 
             if (isEdit) {
                 await axios.put(`http://localhost:8080/api/ipos/${id}`, payload, {
@@ -175,6 +192,31 @@ export default function IPOForm() {
                                     <option value="LISTED">Listed</option>
                                 </select>
                             </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Issue Type</label>
+                                <select
+                                    value={formData.issueType}
+                                    onChange={(e) => setFormData({ ...formData, issueType: e.target.value })}
+                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-black text-xs uppercase tracking-widest text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none"
+                                >
+                                    <option value="IPO">IPO</option>
+                                    <option value="FPO">FPO</option>
+                                    <option value="MUTUAL_FUND">Mutual Fund</option>
+                                    <option value="RIGHT_SHARE">Right Share</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Security Type</label>
+                                <select
+                                    value={formData.securityType}
+                                    onChange={(e) => setFormData({ ...formData, securityType: e.target.value })}
+                                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl font-black text-xs uppercase tracking-widest text-gray-700 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none appearance-none"
+                                >
+                                    <option value="EQUITY">Equity</option>
+                                    <option value="BOND">Bond</option>
+                                    <option value="MUTUAL_FUND">Mutual Fund</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -197,7 +239,7 @@ export default function IPOForm() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Issue Size</label>
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Total Issue Size</label>
                                     <input
                                         type="number"
                                         required
@@ -207,7 +249,52 @@ export default function IPOForm() {
                                     />
                                 </div>
                             </div>
+
+                            {/* Share Categories Breakdown */}
+                            <div className="bg-green-50/50 p-4 rounded-2xl border border-green-100/50 space-y-4">
+                                <label className="block text-[10px] font-black text-green-600 uppercase tracking-widest mb-2 px-1">Category Breakdown (Units)</label>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">Area Affected</label>
+                                        <input
+                                            type="number"
+                                            value={formData.areaAffectedShares}
+                                            onChange={(e) => setFormData({ ...formData, areaAffectedShares: e.target.value })}
+                                            className="w-full px-3 py-3 bg-white border border-gray-100 rounded-xl font-bold text-gray-700 text-sm outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">Foreign Emp.</label>
+                                        <input
+                                            type="number"
+                                            value={formData.foreignEmploymentShares}
+                                            onChange={(e) => setFormData({ ...formData, foreignEmploymentShares: e.target.value })}
+                                            className="w-full px-3 py-3 bg-white border border-gray-100 rounded-xl font-bold text-gray-700 text-sm outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">Local</label>
+                                        <input
+                                            type="number"
+                                            value={formData.localShares}
+                                            onChange={(e) => setFormData({ ...formData, localShares: e.target.value })}
+                                            className="w-full px-3 py-3 bg-white border border-gray-100 rounded-xl font-bold text-gray-700 text-sm outline-none"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1 px-1">General Public</label>
+                                        <input
+                                            type="number"
+                                            value={formData.publicShares}
+                                            onChange={(e) => setFormData({ ...formData, publicShares: e.target.value })}
+                                            className="w-full px-3 py-3 bg-white border border-gray-100 rounded-xl font-bold text-gray-700 text-sm outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
+
                                 <div>
                                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Min Units</label>
                                     <input

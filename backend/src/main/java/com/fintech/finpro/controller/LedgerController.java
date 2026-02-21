@@ -26,6 +26,12 @@ public class LedgerController {
         return ResponseEntity.ok(ledgerService.getAllSystemAccounts());
     }
 
+    @GetMapping("/system-accounts/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<LedgerAccount> getSystemAccountById(@PathVariable Long id) {
+        return ResponseEntity.ok(ledgerService.getAccountById(id));
+    }
+
     @PostMapping("/system-accounts")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
     public ResponseEntity<LedgerAccount> createSystemAccount(@RequestBody Map<String, String> payload) {

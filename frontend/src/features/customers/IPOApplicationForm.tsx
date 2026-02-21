@@ -56,8 +56,12 @@ export default function IPOApplicationForm() {
 
     const loadCustomers = async () => {
         try {
-            const response = await customerApi.getAll({ kycStatus: 'APPROVED' });
-            setCustomers(response.data);
+            const response = await customerApi.getAll();
+            // Allow both APPROVED and DRAFT customers as per user request
+            const filtered = response.data.filter(c =>
+                c.kycStatus === 'APPROVED' || c.kycStatus === 'DRAFT'
+            );
+            setCustomers(filtered);
         } catch (error) {
             console.error('Failed to load customers:', error);
         }
@@ -185,25 +189,37 @@ export default function IPOApplicationForm() {
 
                 <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
                     {/* Customer Selection */}
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium mb-2">
-                            Select Customer <span className="text-red-500">*</span>
-                        </label>
-                        <select
-                            required
-                            value={formData.customerId}
-                            onChange={(e) => setFormData({ ...formData, customerId: Number(e.target.value) })}
-                            className="w-full px-3 py-2 border rounded-lg"
-                        >
-                            <option value={0}>-- Select Customer --</option>
-                            {customers.map((customer) => (
-                                <option key={customer.id} value={customer.id}>
-                                    {customer.fullName} ({customer.email})
-                                </option>
-                            ))}
-                        </select>
-                        <p className="text-sm text-gray-600 mt-1">Only customers with APPROVED KYC are shown</p>
-                    </div>
+                    {!preselectedCustomerId ? (
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium mb-2">
+                                Select Customer <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                required
+                                value={formData.customerId}
+                                onChange={(e) => setFormData({ ...formData, customerId: Number(e.target.value) })}
+                                className="w-full px-3 py-2 border rounded-lg"
+                            >
+                                <option value={0}>-- Select Customer --</option>
+                                {customers.map((customer) => (
+                                    <option key={customer.id} value={customer.id}>
+                                        {customer.fullName} ({customer.email})
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-sm text-gray-600 mt-1">Only customers with APPROVED or DRAFT KYC are shown</p>
+                        </div>
+                    ) : (
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium mb-2">
+                                Customer
+                            </label>
+                            <div className="px-3 py-2 bg-gray-50 border rounded-lg font-semibold text-gray-700">
+                                {customers.find(c => c.id === Number(preselectedCustomerId))?.fullName || 'Loading...'}
+                            </div>
+                            <input type="hidden" value={formData.customerId} name="customerId" />
+                        </div>
+                    )}
 
                     {/* IPO Selection */}
                     <div className="mb-6">
@@ -339,14 +355,14 @@ export default function IPOApplicationForm() {
                             required
                             value={formData.bankAccountId}
                             onChange={(e) => setFormData({ ...formData, bankAccountId: Number(e.target.value) })}
-                            className="w-full px-3 py-2 border rounded-lg"
+                            className="w-full px-3 py-2 border rounded-lg bg-white"
                             disabled={!formData.customerId}
                         >
-                            <option value={0}>-- Select Bank Account --</option>
+                            <option value={0}>-- Choose from your bank accounts --</option>
                             {bankAccounts.map((account) => (
                                 <option key={account.id} value={account.id}>
-                                    {account.bankName} - {account.accountNumber}
-                                    {account.isPrimary && ' (Primary)'}
+                                    {account.bankName} - {account.accountNumber} ({formatCurrency(account.balance || 0)})
+                                    {account.isPrimary ? ' ⭐ Primary' : ''}
                                 </option>
                             ))}
                         </select>

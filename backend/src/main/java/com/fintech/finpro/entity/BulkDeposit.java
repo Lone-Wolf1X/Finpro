@@ -37,6 +37,19 @@ public class BulkDeposit extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String remarks;
 
+    @Column(name = "bank_name", length = 100)
+    private String bankName;
+
+    @Column(name = "transaction_reference", length = 100)
+    private String transactionReference;
+
+    @Column(name = "uploaded_file_name", length = 255)
+    private String uploadedFileName;
+
+    @Column(name = "upload_method", length = 20)
+    @Builder.Default
+    private String uploadMethod = "MANUAL"; // MANUAL, CSV_UPLOAD
+
     @OneToMany(mappedBy = "bulkDeposit", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BulkDepositItem> items = new ArrayList<>();

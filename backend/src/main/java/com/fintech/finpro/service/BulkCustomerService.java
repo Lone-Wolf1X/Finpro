@@ -8,7 +8,6 @@ import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 import com.opencsv.bean.HeaderColumnNameMappingStrategy;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import com.fintech.finpro.repository.CustomerBankAccountRepository;
 import com.fintech.finpro.repository.CustomerRepository;
@@ -23,8 +22,9 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class BulkCustomerService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(BulkCustomerService.class);
 
     private final CustomerService customerService;
     private final CustomerRepository customerRepository;

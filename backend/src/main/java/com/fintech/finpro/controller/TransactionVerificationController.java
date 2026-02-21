@@ -26,6 +26,12 @@ public class TransactionVerificationController {
         return ResponseEntity.ok(verificationService.getAllPendingTransactions());
     }
 
+    @GetMapping("/customer/{customerId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<PendingTransactionDTO>> getTransactionsByCustomerId(@PathVariable Long customerId) {
+        return ResponseEntity.ok(verificationService.getTransactionsByCustomerId(customerId));
+    }
+
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasAnyRole('CHECKER', 'ADMIN', 'SUPERADMIN')")
     public ResponseEntity<PendingTransactionDTO> approveTransaction(
@@ -48,5 +54,12 @@ public class TransactionVerificationController {
         String reason = payload.get("reason");
         PendingTransactionDTO rejected = verificationService.rejectTransaction(id, checkerId, reason);
         return ResponseEntity.ok(rejected);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPERADMIN')")
+    public ResponseEntity<Void> deleteTransaction(@PathVariable Long id) {
+        verificationService.deletePendingTransaction(id);
+        return ResponseEntity.noContent().build();
     }
 }

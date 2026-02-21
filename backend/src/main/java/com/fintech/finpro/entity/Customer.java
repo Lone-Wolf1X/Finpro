@@ -8,13 +8,13 @@ import lombok.*;
 import java.time.LocalDate;
 import java.time.Period;
 
-@Entity
-@Table(name = "customers")
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@EqualsAndHashCode(callSuper = true)
+@Entity
+@Table(name = "customers")
 public class Customer extends BaseEntity {
 
     @Column(name = "first_name", nullable = false)
@@ -53,7 +53,6 @@ public class Customer extends BaseEntity {
     @JoinColumn(name = "bank_id")
     private Bank bank;
 
-    // Self-referencing relationship for guardian
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "guardian_id")
     private Customer guardian;
@@ -75,8 +74,9 @@ public class Customer extends BaseEntity {
 
     private String address;
 
-    @Column(name = "kyc_status", nullable = false) // PENDING, APPROVED, REJECTED, RETURNED
-    private String kycStatus;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kyc_status", nullable = false)
+    private com.fintech.finpro.enums.KycStatus kycStatus;
 
     @Column(name = "remarks")
     private String remarks;
@@ -99,6 +99,16 @@ public class Customer extends BaseEntity {
 
     @Column(name = "created_by_user_id")
     private Long createdByUserId;
+
+    @Column(name = "subscription_paid_until")
+    private LocalDate subscriptionPaidUntil;
+
+    @Column(name = "demat_amc_paid_until")
+    private LocalDate dematAmcPaidUntil;
+
+    @Column(name = "is_demat_renewed")
+    @Builder.Default
+    private Boolean isDematRenewed = false;
 
     @Column(name = "approved_by_user_id")
     private Long approvedByUserId;

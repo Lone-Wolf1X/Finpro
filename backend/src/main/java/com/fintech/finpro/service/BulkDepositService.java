@@ -9,11 +9,15 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvException;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -44,8 +48,10 @@ public class BulkDepositService {
                 .remarks(dto.getRemarks())
                 .build();
 
-        @SuppressWarnings("null")
-        BulkDeposit savedBatch = (BulkDeposit) bulkDepositRepository.save(bulkDeposit);
+        BulkDeposit savedBatch = bulkDepositRepository.save(bulkDeposit);
+        if (savedBatch == null) {
+            throw new RuntimeException("Failed to save bulk deposit batch");
+        }
 
         List<BulkDepositItem> items = dto.getItems().stream().map(itemDto -> {
             Long customerId = itemDto.getCustomerId();
@@ -68,6 +74,124 @@ public class BulkDepositService {
             itemRepository.saveAll(java.util.Objects.requireNonNull(items));
             savedBatch.setItems(items);
         }
+
+        return convertToDTO(savedBatch);
+    }
+
+    @Transactional
+    public BulkDepositDTO createFromCSV(
+            MultipartFile file,
+            String bankName,
+            String transactionReference,
+            Long makerId) throws IOException, CsvException {
+
+        // Validate file
+        if (file.isEmpty()) {
+            throw new RuntimeException("CSV file is empty");
+        }
+
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase().endsWith(".csv")) {
+            throw new RuntimeException("File must be a CSV");
+        }
+
+        // Parse CSV
+        List<String[]> csvData;
+        try (CSVReader reader = new CSVReader(new InputStreamReader(file.getInputStream()))) {
+            csvData = reader.readAll();
+        }
+
+        if (csvData.isEmpty()) {
+            throw new RuntimeException("CSV file has no data");
+        }
+
+        // Validate header
+        String[] header = csvData.get(0);
+        if (header.length < 3) {
+            throw new RuntimeException("CSV must have at least: Customer Code, Customer Name, Amount");
+        }
+
+        // Generate batch ID
+        String batchId = "BATCH-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+        // Auto-generate transaction reference if not provided
+        if (transactionReference == null || transactionReference.trim().isEmpty()) {
+            transactionReference = "TXN-" + java.time.LocalDateTime.now().format(
+                    java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss")) + "-"
+                    + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        }
+
+        // Parse items
+        List<BulkDepositItem> items = new ArrayList<>();
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        List<String> errors = new ArrayList<>();
+
+        for (int i = 1; i < csvData.size(); i++) {
+            String[] row = csvData.get(i);
+            if (row.length < 3) {
+                errors.add("Row " + (i + 1) + ": Insufficient columns");
+                continue;
+            }
+
+            String customerCode = row[0].trim();
+            String amount = row[2].trim();
+            String remarks = row.length > 3 ? row[3].trim() : "";
+            String bankTxnRef = row.length > 4 ? row[4].trim() : "";
+
+            // Validate customer
+            Optional<Customer> customerOpt = customerRepository.findByCustomerCode(customerCode);
+            if (customerOpt.isEmpty()) {
+                errors.add("Row " + (i + 1) + ": Customer not found: " + customerCode);
+                continue;
+            }
+
+            // Validate amount
+            BigDecimal itemAmount;
+            try {
+                itemAmount = new BigDecimal(amount);
+                if (itemAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                    errors.add("Row " + (i + 1) + ": Amount must be positive");
+                    continue;
+                }
+            } catch (NumberFormatException e) {
+                errors.add("Row " + (i + 1) + ": Invalid amount: " + amount);
+                continue;
+            }
+
+            totalAmount = totalAmount.add(itemAmount);
+            items.add(BulkDepositItem.builder()
+                    .customer(customerOpt.get())
+                    .amount(itemAmount)
+                    .remarks(remarks)
+                    .bankTransactionRef(bankTxnRef)
+                    .status("PENDING")
+                    .build());
+        }
+
+        if (items.isEmpty()) {
+            throw new RuntimeException("No valid items found in CSV. Errors: " + String.join("; ", errors));
+        }
+
+        // Create bulk deposit
+        BulkDeposit bulkDeposit = BulkDeposit.builder()
+                .batchId(batchId)
+                .makerId(makerId)
+                .totalAmount(totalAmount)
+                .itemCount(items.size())
+                .status("PENDING")
+                .bankName(bankName)
+                .transactionReference(transactionReference)
+                .uploadedFileName(filename)
+                .uploadMethod("CSV_UPLOAD")
+                .remarks(errors.isEmpty() ? "CSV Upload" : "CSV Upload with " + errors.size() + " errors")
+                .build();
+
+        BulkDeposit savedBatch = bulkDepositRepository.save(bulkDeposit);
+
+        // Link items to batch
+        items.forEach(item -> item.setBulkDeposit(savedBatch));
+        itemRepository.saveAll(items);
+        savedBatch.setItems(items);
 
         return convertToDTO(savedBatch);
     }

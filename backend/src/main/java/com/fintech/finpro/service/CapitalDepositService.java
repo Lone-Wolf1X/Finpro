@@ -5,8 +5,10 @@ import com.fintech.finpro.dto.PendingTransactionDTO;
 import com.fintech.finpro.entity.PendingTransaction;
 import com.fintech.finpro.entity.SystemAccount;
 import com.fintech.finpro.repository.PendingTransactionRepository;
+import com.fintech.finpro.repository.UserRepository;
+import com.fintech.finpro.enums.Role;
+import com.fintech.finpro.entity.User;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +20,15 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class CapitalDepositService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CapitalDepositService.class);
 
     private final PendingTransactionRepository pendingTransactionRepository;
     private final SystemAccountService systemAccountService;
     private final LedgerService ledgerService;
+    private final UserRepository userRepository;
+    private final AuditLogService auditLogService;
 
     /**
      * Create a pending capital deposit transaction (Maker)
@@ -32,24 +37,50 @@ public class CapitalDepositService {
     public PendingTransactionDTO createCapitalDeposit(CreateCapitalDepositDTO dto, Long makerId) {
         log.info("Creating capital deposit for account {} by maker {}", dto.getTargetAccountId(), makerId);
 
-        // Verify target account exists
-        SystemAccount targetAccount = systemAccountService.getAccountById(dto.getTargetAccountId());
+        // Fetch maker details
+        User maker = userRepository.findById(makerId)
+                .orElseThrow(() -> new RuntimeException("Maker not found"));
 
-        // Create pending transaction
+        // Verify target account exists
+        SystemAccount targetAccount = systemAccountService.getAccountByIdOrLedgerId(dto.getTargetAccountId());
+
+        // Determine if auto-approval is possible
+        boolean isAdmin = maker.getRole() == Role.ADMIN || maker.getRole() == Role.SUPERADMIN;
+        boolean withinLimit = dto.getAmount().compareTo(maker.getDepositLimit()) <= 0;
+        boolean autoApprove = isAdmin || withinLimit;
+
+        // Create transaction entry
         PendingTransaction transaction = PendingTransaction.builder()
                 .transactionType("CORE_CAPITAL_DEPOSIT")
                 .amount(dto.getAmount())
                 .systemAccount(targetAccount)
                 .description(dto.getDescription())
                 .createdByUserId(makerId)
-                .status("PENDING")
+                .status(autoApprove ? "APPROVED" : "PENDING")
                 .isBulk(false)
                 .build();
 
-        // PendingTransaction saved = pendingTransactionRepository.save(transaction);
-        // log.info("Created pending capital deposit with ID: {}", saved.getId());
+        if (autoApprove) {
+            transaction.setVerifiedByUserId(makerId);
+            transaction.setVerifiedAt(java.time.LocalDateTime.now());
+        }
 
-        return convertToDTO(pendingTransactionRepository.save(transaction));
+        PendingTransaction saved = pendingTransactionRepository.save(transaction);
+
+        // Log activity
+        auditLogService.log(makerId, "CREATE_CAPITAL_DEPOSIT", "PendingTransaction", saved.getId(),
+                String.format("Created %s deposit for %s. Amount: %s",
+                        autoApprove ? "auto-approved" : "pending",
+                        targetAccount.getAccountName(), dto.getAmount()));
+
+        if (autoApprove) {
+            log.info("Auto-approving capital deposit for role {}", maker.getRole());
+            // Execute the actual balance and ledger updates
+            systemAccountService.addToBalance(targetAccount.getId(), dto.getAmount());
+            ledgerService.createCapitalDepositEntry(targetAccount, dto.getAmount(), dto.getDescription(), makerId);
+        }
+
+        return convertToDTO(saved);
     }
 
     /**
@@ -59,27 +90,53 @@ public class CapitalDepositService {
     public PendingTransactionDTO createCapitalWithdrawal(CreateCapitalDepositDTO dto, Long makerId) {
         log.info("Creating capital withdrawal for account {} by maker {}", dto.getTargetAccountId(), makerId);
 
+        // Fetch maker details
+        User maker = userRepository.findById(makerId)
+                .orElseThrow(() -> new RuntimeException("Maker not found"));
+
         // Verify target account exists and has sufficient balance
-        SystemAccount targetAccount = systemAccountService.getAccountById(dto.getTargetAccountId());
+        SystemAccount targetAccount = systemAccountService.getAccountByIdOrLedgerId(dto.getTargetAccountId());
         if (targetAccount.getBalance().compareTo(dto.getAmount()) < 0) {
             throw new RuntimeException("Insufficient balance in system account for withdrawal");
         }
 
-        // Create pending transaction
+        // Determine if auto-approval is possible
+        boolean isAdmin = maker.getRole() == Role.ADMIN || maker.getRole() == Role.SUPERADMIN;
+        boolean withinLimit = dto.getAmount().compareTo(maker.getWithdrawalLimit()) <= 0;
+        boolean autoApprove = isAdmin || withinLimit;
+
+        // Create transaction entry
         PendingTransaction transaction = PendingTransaction.builder()
                 .transactionType("CORE_CAPITAL_WITHDRAWAL")
                 .amount(dto.getAmount())
                 .systemAccount(targetAccount)
                 .description(dto.getDescription())
                 .createdByUserId(makerId)
-                .status("PENDING")
+                .status(autoApprove ? "APPROVED" : "PENDING")
                 .isBulk(false)
                 .build();
 
-        // PendingTransaction saved = pendingTransactionRepository.save(transaction);
-        // log.info("Created pending capital withdrawal with ID: {}", saved.getId());
+        if (autoApprove) {
+            transaction.setVerifiedByUserId(makerId);
+            transaction.setVerifiedAt(java.time.LocalDateTime.now());
+        }
 
-        return convertToDTO(pendingTransactionRepository.save(transaction));
+        PendingTransaction saved = pendingTransactionRepository.save(transaction);
+
+        // Log activity
+        auditLogService.log(makerId, "CREATE_CAPITAL_WITHDRAWAL", "PendingTransaction", saved.getId(),
+                String.format("Created %s withdrawal for %s. Amount: %s",
+                        autoApprove ? "auto-approved" : "pending",
+                        targetAccount.getAccountName(), dto.getAmount()));
+
+        if (autoApprove) {
+            log.info("Auto-approving capital withdrawal for role {}", maker.getRole());
+            // Execute updates
+            systemAccountService.subtractFromBalance(targetAccount.getId(), dto.getAmount());
+            ledgerService.createCapitalWithdrawalEntry(targetAccount, dto.getAmount(), dto.getDescription(), makerId);
+        }
+
+        return convertToDTO(saved);
     }
 
     /**
@@ -142,6 +199,11 @@ public class CapitalDepositService {
         transaction.approve(checkerId);
         PendingTransaction updated = pendingTransactionRepository.save(transaction);
 
+        // Log activity
+        auditLogService.log(checkerId, "APPROVE_CAPITAL_TRANSACTION", "PendingTransaction", updated.getId(),
+                String.format("Approved %s for %s. Amount: %s",
+                        updated.getTransactionType(), targetAccount.getAccountName(), updated.getAmount()));
+
         log.info("Capital {} approved. Account {} balance updated",
                 transaction.getTransactionType().toLowerCase(), targetAccount.getAccountNumber());
         return convertToDTO(updated);
@@ -165,6 +227,13 @@ public class CapitalDepositService {
         // Mark transaction as rejected
         transaction.reject(checkerId, reason);
         PendingTransaction updated = pendingTransactionRepository.save(transaction);
+
+        // Log activity
+        auditLogService.log(checkerId, "REJECT_CAPITAL_TRANSACTION", "PendingTransaction", updated.getId(),
+                String.format("Rejected %s for %s. Reason: %s",
+                        updated.getTransactionType(),
+                        updated.getSystemAccount() != null ? updated.getSystemAccount().getAccountName() : "Unknown",
+                        reason));
 
         log.info("Capital deposit rejected");
         return convertToDTO(updated);

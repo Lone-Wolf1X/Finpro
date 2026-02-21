@@ -16,6 +16,9 @@ import org.springframework.context.annotation.Configuration;
 @Slf4j
 public class DatabaseInitializer {
 
+    private final com.fintech.finpro.repository.TenantRepository tenantRepository;
+    private final com.fintech.finpro.repository.UserRepository userRepository;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
     private final SystemAccountService systemAccountService;
 
     @Bean
@@ -25,7 +28,38 @@ public class DatabaseInitializer {
 
             try {
                 // Initialize core system accounts
+                // Initialize core system accounts
                 systemAccountService.initializeCoreAccounts();
+
+                // Initialize System Tenant and Super Admin
+                if (tenantRepository.findBySubdomain("system").isEmpty()) {
+                    log.info("Creating System Tenant...");
+                    com.fintech.finpro.entity.Tenant systemTenant = com.fintech.finpro.entity.Tenant.builder()
+                            .companyName("Finpro System")
+                            .tenantKey("system")
+                            .subdomain("system")
+                            .contactEmail("admin@finpro.com")
+                            .subscriptionPlan("ENTERPRISE")
+                            .subscriptionStatus("ACTIVE")
+                            .subscriptionStartDate(java.time.LocalDateTime.now())
+                            .status("ACTIVE")
+                            .build();
+                    systemTenant = tenantRepository.save(systemTenant);
+
+                    log.info("Creating Super Admin User...");
+                    com.fintech.finpro.entity.User superAdmin = com.fintech.finpro.entity.User.builder()
+                            .tenantId(systemTenant.getId())
+                            .email("admin@finpro.com")
+                            .passwordHash(passwordEncoder.encode("admin123"))
+                            .name("Super Admin")
+                            .role(com.fintech.finpro.enums.Role.SUPERADMIN)
+                            .status("ACTIVE")
+                            .userId("admin@finpro.com")
+                            .staffId("SYS-ADMIN-01")
+                            .build();
+                    userRepository.save(superAdmin);
+                    log.info("Super Admin created: admin@finpro.com / admin123");
+                }
 
                 log.info("Database initialization completed successfully");
             } catch (Exception e) {

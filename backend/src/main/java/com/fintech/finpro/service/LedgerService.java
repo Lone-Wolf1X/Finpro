@@ -24,6 +24,18 @@ public class LedgerService {
          */
         @Transactional
         public LedgerAccount getOrCreateAccount(String name, LedgerAccountType type, Long ownerId) {
+                // For system accounts (no ownerId), primary lookup should be by name to avoid
+                // duplicates
+                if (ownerId == null) {
+                        return accountRepository.findByAccountName(name)
+                                        .orElseGet(() -> accountRepository.save(LedgerAccount.builder()
+                                                        .accountName(name)
+                                                        .accountType(type)
+                                                        .balance(BigDecimal.ZERO)
+                                                        .status("ACTIVE")
+                                                        .build()));
+                }
+
                 return accountRepository.findByAccountTypeAndOwnerId(type, ownerId)
                                 .orElseGet(() -> accountRepository
                                                 .save(java.util.Objects.requireNonNull(LedgerAccount.builder()
@@ -47,6 +59,7 @@ public class LedgerService {
                         LedgerTransactionType type,
                         String referenceId,
                         Long makerId,
+                        String remarks, // New parameter
                         com.fintech.finpro.entity.CustomerBankAccount bankAccount) {
 
                 if (amount.compareTo(BigDecimal.ZERO) <= 0) {
@@ -57,27 +70,45 @@ public class LedgerService {
                 debitAcc.setBalance(debitAcc.getBalance().subtract(amount));
                 creditAcc.setBalance(creditAcc.getBalance().add(amount));
 
+                BigDecimal debitBalanceAfter = debitAcc.getBalance();
+                BigDecimal creditBalanceAfter = creditAcc.getBalance();
+
                 accountRepository.save(debitAcc);
                 accountRepository.save(creditAcc);
 
                 // Update customer bank account balance if provided
                 if (bankAccount != null) {
-                        // For DEPOSIT type, add to balance
-                        // For WITHDRAWAL/FEE/TRANSFER type, subtract from balance
+                        // Ledger Service is the sole authority for updating Bank Account actual
+                        // balances
+                        // during a dual-entry transaction.
                         if (type == LedgerTransactionType.DEPOSIT || type == LedgerTransactionType.REVERSAL
                                         || type == LedgerTransactionType.SETTLEMENT) {
                                 bankAccount.setBalance(bankAccount.getBalance().add(amount));
                         } else if (type == LedgerTransactionType.WITHDRAWAL || type == LedgerTransactionType.FEE
-                                        || type == LedgerTransactionType.TRANSFER
-                                        || type == LedgerTransactionType.ALLOTMENT) {
+                                        || type == LedgerTransactionType.TRANSFER) {
                                 bankAccount.setBalance(bankAccount.getBalance().subtract(amount));
+                        } else if (type == LedgerTransactionType.ALLOTMENT) {
+                                // For Allotment (Settlement), we only subtract from actual balance.
+                                // Held balance unblocking is now handled explicitly in the service layer
+                                // before calling this settlement transaction.
+                                bankAccount.setBalance(bankAccount.getBalance().subtract(amount));
+                        } else if (type == LedgerTransactionType.REFUND) {
+                                // For Refund (Unblocking), we only decrease the held balance
+                                bankAccount.setHeldBalance(bankAccount.getHeldBalance().subtract(amount));
                         }
+                }
+
+                if (referenceId != null && !referenceId.isEmpty()) {
+                        String existingRemarks = remarks != null ? remarks : "";
+                        remarks = existingRemarks + (existingRemarks.isEmpty() ? "" : " | ") + "Ref: " + referenceId;
                 }
 
                 // Record transaction
                 LedgerTransaction transaction = LedgerTransaction.builder()
                                 .debitAccount(debitAcc)
                                 .creditAccount(creditAcc)
+                                .debitBalanceAfter(debitBalanceAfter)
+                                .creditBalanceAfter(creditBalanceAfter)
                                 .amount(amount)
                                 .particulars(particulars)
                                 .transactionType(type)
@@ -85,6 +116,7 @@ public class LedgerService {
                                 .makerId(makerId)
                                 .status("COMPLETED")
                                 .customerBankAccount(bankAccount)
+                                .remarks(remarks) // Added remarks with preserved referenceId
                                 .build();
 
                 // Assign Transaction ID
@@ -106,7 +138,8 @@ public class LedgerService {
                         LedgerTransactionType type,
                         String referenceId,
                         Long makerId) {
-                return recordTransaction(debitAcc, creditAcc, amount, particulars, type, referenceId, makerId, null);
+                return recordTransaction(debitAcc, creditAcc, amount, particulars, type, referenceId, makerId, null,
+                                null);
         }
 
         private synchronized String generateTransactionId() {
@@ -121,13 +154,15 @@ public class LedgerService {
         @Transactional
         public void initializeSystemAccounts() {
                 createSystemAccount("Office Cash", LedgerAccountType.OFFICE);
-                createSystemAccount("Core Capital", LedgerAccountType.CORE_CAPITAL);
-                createSystemAccount("Subscription Fees", LedgerAccountType.FEE_INCOME);
-                createSystemAccount("Demat Fees", LedgerAccountType.FEE_INCOME);
+                createSystemAccount("Core Capital Account", LedgerAccountType.CORE_CAPITAL);
+                createSystemAccount("Invested Account", LedgerAccountType.INVESTED_ACCOUNT);
+                createSystemAccount("Subscription Fee Income", LedgerAccountType.FEE_INCOME);
+                createSystemAccount("Demat AMC Payable", LedgerAccountType.TAX_PAYABLE);
                 createSystemAccount("CASBA Charges", LedgerAccountType.FEE_INCOME);
                 createSystemAccount("Tax Payable (CGT)", LedgerAccountType.TAX_PAYABLE);
                 createSystemAccount("Broker Commission Payable", LedgerAccountType.TAX_PAYABLE);
                 createSystemAccount("Office Expenses", LedgerAccountType.EXPENSE);
+                createSystemAccount("Share Settlement Account", LedgerAccountType.SUSPENSE);
         }
 
         private void createSystemAccount(String name, LedgerAccountType type) {
@@ -187,7 +222,7 @@ public class LedgerService {
                 LedgerAccount cashAccount = getOrCreateAccount("Office Cash", LedgerAccountType.OFFICE, null);
                 LedgerAccount capitalAccount = getOrCreateAccount(
                                 targetAccount.getAccountName(),
-                                LedgerAccountType.CORE_CAPITAL,
+                                mapSystemCodeToLedgerType(targetAccount.getAccountCode()),
                                 targetAccount.getOwnerId());
 
                 // Record transaction: Debit Cash, Credit Capital
@@ -198,7 +233,9 @@ public class LedgerService {
                                 description != null ? description : "Capital deposit",
                                 LedgerTransactionType.DEPOSIT,
                                 null,
-                                checkerId);
+                                checkerId,
+                                null,
+                                null);
         }
 
         /**
@@ -215,7 +252,7 @@ public class LedgerService {
                 LedgerAccount cashAccount = getOrCreateAccount("Office Cash", LedgerAccountType.OFFICE, null);
                 LedgerAccount capitalAccount = getOrCreateAccount(
                                 targetAccount.getAccountName(),
-                                LedgerAccountType.CORE_CAPITAL,
+                                mapSystemCodeToLedgerType(targetAccount.getAccountCode()),
                                 targetAccount.getOwnerId());
 
                 // Record transaction: Debit Capital, Credit Cash
@@ -226,7 +263,15 @@ public class LedgerService {
                                 description != null ? description : "Capital withdrawal",
                                 LedgerTransactionType.WITHDRAWAL,
                                 null,
-                                checkerId);
+                                checkerId,
+                                null,
+                                null);
+        }
+
+        @Transactional(readOnly = true)
+        public LedgerAccount getAccountById(Long id) {
+                return accountRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Ledger account not found with ID: " + id));
         }
 
         /**
@@ -244,20 +289,30 @@ public class LedgerService {
                 java.time.LocalDateTime startDateTime = startDate.atStartOfDay();
                 java.time.LocalDateTime endDateTime = endDate.atTime(23, 59, 59);
 
-                java.util.List<LedgerTransaction> transactions = transactionRepository
-                                .findByLedgerAccountAndDateRange(accountId, startDateTime, endDateTime);
+                // 2. Fetch Transactions
+                java.util.List<com.fintech.finpro.entity.LedgerTransaction> transactions = transactionRepository
+                                .findByLedgerAccountAndDateRange(account.getId(), startDateTime, endDateTime);
 
+                // 3. Sort by Date ASC for calculation
                 java.util.List<com.fintech.finpro.dto.BankTransactionDTO> transactionDTOs = new java.util.ArrayList<>();
                 for (LedgerTransaction t : transactions) {
+                        BigDecimal balanceAfter = null;
+                        if (t.getDebitAccount() != null && t.getDebitAccount().getId().equals(accountId)) {
+                                balanceAfter = t.getDebitBalanceAfter();
+                        } else if (t.getCreditAccount() != null && t.getCreditAccount().getId().equals(accountId)) {
+                                balanceAfter = t.getCreditBalanceAfter();
+                        }
+
                         transactionDTOs.add(com.fintech.finpro.dto.BankTransactionDTO.builder()
                                         .id(t.getId())
                                         .date(t.getCreatedAt())
                                         .type(t.getTransactionType() != null ? t.getTransactionType().name()
                                                         : "UNKNOWN")
-                                        .amount(t.getAmount())
+                                        .amount(t.getAmount()) // Consider if we want Debit/Credit columns
                                         .description(t.getParticulars())
                                         .referenceId(t.getReferenceId())
                                         .status(t.getStatus())
+                                        .balanceAfter(balanceAfter) // Added field
                                         .build());
                 }
 
@@ -270,5 +325,18 @@ public class LedgerService {
                                 .currentBalance(account.getBalance())
                                 .transactions(transactionDTOs)
                                 .build();
+        }
+
+        private LedgerAccountType mapSystemCodeToLedgerType(String accountCode) {
+                if (accountCode == null)
+                        return LedgerAccountType.SUSPENSE;
+                if (accountCode.startsWith("CAPITAL_"))
+                        return LedgerAccountType.INVESTOR_LEDGER;
+                return LedgerAccountType.SUSPENSE;
+        }
+
+        @Transactional
+        public void deleteTransactionsByReferenceIdPrefix(String prefix) {
+                transactionRepository.deleteByReferenceIdStartingWith(prefix);
         }
 }

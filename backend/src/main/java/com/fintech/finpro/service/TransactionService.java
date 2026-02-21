@@ -49,7 +49,7 @@ public class TransactionService {
                 } else {
                         // Debit Core Capital
                         sourceAcc = ledgerService.getOrCreateAccount(
-                                        "Core Capital",
+                                        "Core Capital Account",
                                         LedgerAccountType.CORE_CAPITAL,
                                         null);
 
@@ -66,6 +66,7 @@ public class TransactionService {
                                 LedgerTransactionType.DEPOSIT,
                                 null,
                                 makerId,
+                                null, // remarks
                                 bankAccount);
         }
 
@@ -110,7 +111,7 @@ public class TransactionService {
                                         customer.getFullName(), remarks);
                 } else {
                         destinationAcc = ledgerService.getOrCreateAccount(
-                                        "Core Capital",
+                                        "Core Capital Account",
                                         LedgerAccountType.CORE_CAPITAL,
                                         null);
 
@@ -127,6 +128,7 @@ public class TransactionService {
                                 LedgerTransactionType.WITHDRAWAL,
                                 null,
                                 makerId,
+                                null, // remarks
                                 bankAccount);
         }
 

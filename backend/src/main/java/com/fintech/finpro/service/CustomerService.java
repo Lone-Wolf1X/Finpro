@@ -5,6 +5,7 @@ import com.fintech.finpro.dto.CustomerDraftDTO;
 import com.fintech.finpro.dto.CustomerDTO;
 import com.fintech.finpro.entity.Customer;
 import com.fintech.finpro.enums.CustomerType;
+import com.fintech.finpro.enums.KycStatus;
 import com.fintech.finpro.enums.LedgerAccountType;
 import com.fintech.finpro.repository.CustomerRepository;
 import com.fintech.finpro.repository.UserRepository;
@@ -67,9 +68,9 @@ public class CustomerService {
 
         // Enforce DRAFT for MAKER
         if (SecurityUtils.isMaker()) {
-            customer.setKycStatus("DRAFT");
+            customer.setKycStatus(KycStatus.DRAFT);
         } else {
-            customer.setKycStatus("PENDING");
+            customer.setKycStatus(KycStatus.PENDING);
         }
 
         // Set Bank
@@ -108,7 +109,7 @@ public class CustomerService {
             if (!CustomerType.MAJOR.equals(guardian.getCustomerType())) {
                 throw new RuntimeException("Guardian must be a MAJOR customer (age >= 18)");
             }
-            if (!dto.isSkipGuardianKycCheck() && !"APPROVED".equals(guardian.getKycStatus())) {
+            if (!dto.isSkipGuardianKycCheck() && !KycStatus.APPROVED.equals(guardian.getKycStatus())) {
                 throw new RuntimeException("Guardian must have APPROVED KYC status");
             }
 
@@ -139,6 +140,12 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
+    public Customer getCustomerByEmail(String email) {
+        List<Customer> customers = customerRepository.findByEmail(email);
+        return customers.isEmpty() ? null : customers.get(0);
+    }
+
+    @Transactional(readOnly = true)
     public List<CustomerDTO> getAllCustomers() {
         return customerRepository.findAll().stream()
                 .map(this::mapToDTO)
@@ -154,7 +161,7 @@ public class CustomerService {
 
     @Transactional(readOnly = true)
     public List<CustomerDTO> getCustomersByKycStatus(String status) {
-        return customerRepository.findByKycStatus(status).stream()
+        return customerRepository.findByKycStatus(KycStatus.valueOf(status)).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
@@ -255,9 +262,9 @@ public class CustomerService {
         }
 
         // If status was DRAFT, REJECTED, or RETURNED, move to PENDING on "Submit"
-        if ("DRAFT".equals(customer.getKycStatus()) || "REJECTED".equals(customer.getKycStatus())
-                || "RETURNED".equals(customer.getKycStatus())) {
-            customer.setKycStatus("PENDING");
+        if (KycStatus.DRAFT.equals(customer.getKycStatus()) || KycStatus.REJECTED.equals(customer.getKycStatus())
+                || KycStatus.RETURNED.equals(customer.getKycStatus())) {
+            customer.setKycStatus(KycStatus.PENDING);
             customer.setRemarks(null); // Clear remarks on resubmit
         }
 
@@ -290,7 +297,7 @@ public class CustomerService {
                 .citizenshipNumber(dto.getCitizenshipNumber())
                 .nidNumber(dto.getNidNumber())
                 .customerCode(generateCustomerCode())
-                .kycStatus("DRAFT")
+                .kycStatus(KycStatus.DRAFT)
                 .photoPath(dto.getPhotoPath())
                 .signaturePath(dto.getSignaturePath())
                 .guardianPhotoPath(dto.getGuardianPhotoPath())
@@ -443,7 +450,7 @@ public class CustomerService {
 
         // 2. Delete Pending Transactions
         List<com.fintech.finpro.entity.PendingTransaction> pendingTransactions = pendingTransactionRepository
-                .findByCustomerIdOrderByCreatedAtDesc(id);
+                .findByCustomer_IdOrderByCreatedAtDesc(id);
         if (!pendingTransactions.isEmpty()) {
             pendingTransactionRepository.deleteAll(pendingTransactions);
         }
@@ -493,7 +500,7 @@ public class CustomerService {
         Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
 
-        customer.setKycStatus("APPROVED");
+        customer.setKycStatus(KycStatus.APPROVED);
         customer.setApprovedByUserId(approvedByUserId);
 
         Customer approved = customerRepository.save(customer);
@@ -505,7 +512,7 @@ public class CustomerService {
         Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
 
-        customer.setKycStatus("REJECTED");
+        customer.setKycStatus(KycStatus.REJECTED);
         customer.setRemarks(remarks);
 
         Customer rejected = customerRepository.save(customer);
@@ -517,7 +524,7 @@ public class CustomerService {
         Customer customer = customerRepository.findById(java.util.Objects.requireNonNull(id))
                 .orElseThrow(() -> new RuntimeException("Customer not found with ID: " + id));
 
-        customer.setKycStatus("RETURNED");
+        customer.setKycStatus(KycStatus.RETURNED);
         customer.setRemarks(remarks);
 
         Customer returned = customerRepository.save(customer);
@@ -580,7 +587,7 @@ public class CustomerService {
                         ? modelMapper.map(customer.getBank(), com.fintech.finpro.dto.BankDTO.class)
                         : null)
                 .address(customer.getAddress())
-                .kycStatus(customer.getKycStatus())
+                .kycStatus(customer.getKycStatus() != null ? customer.getKycStatus().name() : null)
                 .remarks(customer.getRemarks())
                 .createdByUserId(customer.getCreatedByUserId())
                 .approvedByUserId(customer.getApprovedByUserId())
@@ -668,6 +675,7 @@ public class CustomerService {
                             com.fintech.finpro.enums.LedgerTransactionType.DEPOSIT,
                             null,
                             null,
+                            null, // remarks
                             savedAccount);
                 }
             }
